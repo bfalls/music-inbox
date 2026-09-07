@@ -155,7 +155,7 @@ After a successful manual request, install the user-level background service:
 music-inbox install-service
 ```
 
-It creates `~/Library/LaunchAgents/com.music-inbox.worker.plist`, runs only as your logged-in user, watches `2 Queued`, and writes its log under the local-only data folder. It is deliberately not a system daemon and does not run with administrator privileges.
+It creates `~/Library/LaunchAgents/com.music-inbox.worker.plist`, runs only as your logged-in user, watches `2 Queued`, and writes its log under the local-only data folder. It is deliberately not a system daemon and does not run with administrator privileges. Running `install-service` again safely refreshes this one fixed-label service; it does not create a second watcher.
 
 ```bash
 music-inbox status

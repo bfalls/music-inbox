@@ -11,6 +11,7 @@ zsh tests/test-config.zsh
 zsh tests/test-request-and-queue.zsh
 zsh tests/test-media-handler.zsh
 zsh tests/test-launchd.zsh
+zsh tests/test-ui.zsh
 ```
 
 Keep changes focused, update user-facing documentation when behavior changes, and avoid adding personal paths, browser cookies, downloaded media, local configuration, or generated models to commits.

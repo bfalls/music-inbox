@@ -16,6 +16,7 @@ TRANSCRIPTION_ONLY=false
 
 source "$PROJECT_DIR/lib/music-inbox.zsh"
 source "$PROJECT_DIR/lib/templates.zsh"
+source "$PROJECT_DIR/lib/ui.zsh"
 
 prompt_with_default() {
   local prompt="$1" default="$2" answer
@@ -61,12 +62,12 @@ if [[ -r "$CONFIG_FILE" ]]; then
 fi
 
 if [[ "$TRANSCRIPTION_ONLY" == true ]]; then
-  print "Music Inbox transcription setup"
+  music_inbox_ui_heading 'Music Inbox — transcription setup'
 else
-  print "Music Inbox setup"
+  music_inbox_ui_heading 'Music Inbox — setup'
 fi
 music_inbox_acceleration_summary
-print "This creates a folder-based inbox and a private configuration file."
+music_inbox_ui_info 'Creates a folder-based inbox and a private configuration file.'
 print
 
 if [[ "$TRANSCRIPTION_ONLY" == true ]]; then
@@ -109,7 +110,7 @@ case "${template_style:l}" in
   *) print -u2 "Template style must be obsidian or standard."; exit 2 ;;
 esac
 if looks_like_synced_path "$local_root"; then
-  print -u2 "Warning: that local-data folder looks like a synced location. Models and temporary media should stay on this Mac."
+  music_inbox_ui_warning 'That local-data folder looks synced. Models and temporary media should stay on this Mac.'
   if ! confirm "Use this location anyway?"; then
     print "No changes made. Choose a non-synced local-data folder and run setup again."
     exit 2
@@ -164,7 +165,7 @@ if [[ "$paths_entry" != /usr/local/bin ]]; then
 fi
 if [[ "$needs_admin" == yes ]]; then
   print
-  print "Administrator permission is required next."
+  music_inbox_ui_info 'Administrator permission is required next.'
   print "macOS will ask for your password so Music Inbox can install its command in /usr/local/bin"
   print "and register that standard command location for future Terminal sessions."
   print "The Music Inbox worker, its notes, media, and models will still run only as your user."
@@ -199,7 +200,7 @@ fi
 
 if (( ${#missing_tools} )); then
   print
-  print "Missing dependencies: ${(j:, :)missing_tools}"
+  music_inbox_ui_warning "Missing dependencies: ${(j:, :)missing_tools}"
   managers=()
   command -v brew >/dev/null 2>&1 && managers+=(brew)
   command -v port >/dev/null 2>&1 && managers+=(port)
@@ -216,21 +217,23 @@ if (( ${#missing_tools} )); then
       *) print -u2 "Unsupported package manager: $preferred"; exit 2 ;;
     esac
     if confirm "Install missing dependencies with $preferred?"; then
-      [[ "$preferred" == port ]] && print "MacPorts may ask for the same administrator password to install its packages."
+      [[ "$preferred" == port ]] && music_inbox_ui_info 'MacPorts may ask for the same administrator password to install its packages.'
       if [[ "$preferred" == brew ]]; then
         packages=()
         (( ${missing_tools[(I)yt-dlp]} )) && packages+=(yt-dlp)
         (( ${missing_tools[(I)ffmpeg]} || ${missing_tools[(I)ffprobe]} )) && packages+=(ffmpeg)
         (( ${missing_tools[(I)deno]} )) && packages+=(deno)
         (( ${missing_tools[(I)whisper]} )) && packages+=(whisper-cpp)
-        brew install "${packages[@]}"
+        music_inbox_ui_run 'Installing required dependencies with Homebrew' -- brew install "${packages[@]}"
       else
         # MacPorts' yt-dlp port brings ffmpeg and its EJS runtime support.
         packages=()
         (( ${missing_tools[(I)yt-dlp]} || ${missing_tools[(I)ffmpeg]} || ${missing_tools[(I)ffprobe]} )) && packages+=(yt-dlp)
         (( ${missing_tools[(I)deno]} )) && packages+=(deno)
         (( ${missing_tools[(I)whisper]} )) && packages+=(whisper)
+        music_inbox_ui_info 'Installing required dependencies with MacPorts…'
         sudo port install "${packages[@]}"
+        music_inbox_ui_success 'Installed required dependencies with MacPorts'
       fi
     else
       print "Skipped dependency installation. Run: music-inbox doctor"
@@ -250,34 +253,35 @@ if [[ "${transcription:l}" == yes ]]; then
   required_kib=$(( (${model_mib[$whisper_model]:-3100} + 1024) * 1024 ))
   free_kib="$(music_inbox_disk_free_kib "$local_root")"
   print
-  print "Transcription model: $whisper_model (about ${model_mib[$whisper_model]:-3100} MiB download)"
-  print "Free disk space: $(( free_kib / 1024 )) MiB; recommended minimum: $(( required_kib / 1024 )) MiB"
+  music_inbox_ui_heading 'Local transcription model'
+  music_inbox_ui_key_value 'Model' "$whisper_model (about ${model_mib[$whisper_model]:-3100} MiB download)"
+  music_inbox_ui_key_value 'Free space' "$(( free_kib / 1024 )) MiB; recommended minimum: $(( required_kib / 1024 )) MiB"
   if [[ ! -r "$model_path" ]]; then
     if (( free_kib < required_kib )); then
-      print -u2 "Warning: available space is below the recommended amount."
+      music_inbox_ui_warning 'Available space is below the recommended amount.'
     fi
     if confirm "Download this model now?"; then
       command -v curl >/dev/null 2>&1 || { print -u2 "curl is required to download the model."; exit 1; }
       temporary_model="$model_path.partial.$$"
-      if ! curl --fail --location --retry 3 --output "$temporary_model" \
+      if ! music_inbox_ui_run "Downloading the $whisper_model transcription model" -- curl --fail --location --retry 3 --output "$temporary_model" \
         "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${whisper_model}.bin"; then
         rm -f -- "$temporary_model"
         print -u2 "Model download failed; no incomplete model was activated."
         exit 1
       fi
       mv -f -- "$temporary_model" "$model_path"
-      print "Downloaded: $model_path"
+      music_inbox_ui_success "Saved transcription model to $model_path"
     else
       print "Skipped model download. Requests that ask for transcription will fail early with recovery instructions."
     fi
   else
-    print "Model already present: $model_path"
+    music_inbox_ui_success "Transcription model already present: $model_path"
   fi
 fi
 
 if [[ "$TRANSCRIPTION_ONLY" == false ]]; then
   print
-  print "Background service (optional)"
+  music_inbox_ui_heading 'Background service (optional)'
   print "It runs as your user, watches the Queued folder, and processes new request notes automatically."
   print "Choose no to run requests manually with: music-inbox process"
   if confirm "Install and start the background service now?"; then
@@ -287,12 +291,12 @@ if [[ "$TRANSCRIPTION_ONLY" == false ]]; then
   fi
 fi
 
-print
-print "Installed command: $BIN_DIR/music-inbox"
-print "Configuration: $CONFIG_FILE"
-print "Inbox root: $inbox_root"
-print "Local-only data: $local_root"
+music_inbox_ui_heading 'Music Inbox is ready'
+music_inbox_ui_key_value 'Command' "$BIN_DIR/music-inbox"
+music_inbox_ui_key_value 'Configuration' "$CONFIG_FILE"
+music_inbox_ui_key_value 'Inbox root' "$inbox_root"
+music_inbox_ui_key_value 'Local data' "$local_root"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
   print "This shell has a custom PATH. Standard new macOS Terminal sessions will include $BIN_DIR automatically."
 fi
-print "Next: music-inbox doctor"
+music_inbox_ui_info 'Next: music-inbox doctor'

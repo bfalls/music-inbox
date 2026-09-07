@@ -22,3 +22,27 @@ rg -q '<string>/usr/local/bin/music-inbox</string>' "$plist"
 rg -q 'inbox &amp; notes/2 Queued' "$plist"
 rg -q "<string>$MUSIC_INBOX_LOG</string>" "$plist"
 print 'ok - generates a valid user LaunchAgent plist with escaped paths'
+
+mkdir -p "$TEST_ROOT/home/Library/LaunchAgents" "$TEST_ROOT/mock-bin"
+launchctl_log="$TEST_ROOT/launchctl.log"
+launchctl_loaded="$TEST_ROOT/launchctl-loaded"
+{
+  print '#!/bin/zsh'
+  print 'print -r -- "$@" >> "$LAUNCHCTL_LOG"'
+  print 'case "$1" in'
+  print '  print) [[ -e "$LAUNCHCTL_LOADED" ]] ;;'
+  print '  bootout) rm -f -- "$LAUNCHCTL_LOADED" ;;'
+  print '  bootstrap) : > "$LAUNCHCTL_LOADED" ;;'
+  print 'esac'
+} > "$TEST_ROOT/mock-bin/launchctl"
+chmod 755 "$TEST_ROOT/mock-bin/launchctl"
+
+HOME="$TEST_ROOT/home"
+PATH="$TEST_ROOT/mock-bin:$PATH"
+export LAUNCHCTL_LOG="$launchctl_log" LAUNCHCTL_LOADED="$launchctl_loaded"
+music_inbox_install_service >/dev/null
+music_inbox_install_service >/dev/null
+[[ -e "$launchctl_loaded" ]]
+[[ "$(rg -c '^bootout ' "$launchctl_log")" == 1 ]]
+[[ "$(rg -c '^bootstrap ' "$launchctl_log")" == 2 ]]
+print 'ok - repeated installation unloads and replaces one fixed-label LaunchAgent'

@@ -46,17 +46,29 @@ music_inbox_launchd_is_loaded() {
 }
 
 music_inbox_install_service() {
-  local temporary_plist
+  local temporary_plist replacing=no
   music_inbox_launchd_paths
   temporary_plist="$MUSIC_INBOX_LAUNCHD_PLIST.tmp.$$"
   music_inbox_write_launch_agent_plist "$temporary_plist"
   plutil -lint "$temporary_plist" >/dev/null || { rm -f -- "$temporary_plist"; print -u2 'Generated LaunchAgent plist is invalid.'; return 1; }
   if music_inbox_launchd_is_loaded; then
-    launchctl bootout "$MUSIC_INBOX_LAUNCHD_DOMAIN/$MUSIC_INBOX_LAUNCHD_LABEL"
+    replacing=yes
+    if ! launchctl bootout "$MUSIC_INBOX_LAUNCHD_DOMAIN/$MUSIC_INBOX_LAUNCHD_LABEL"; then
+      rm -f -- "$temporary_plist"
+      print -u2 'Could not stop the existing Music Inbox background service. No replacement was installed.'
+      return 1
+    fi
   fi
   mv -f -- "$temporary_plist" "$MUSIC_INBOX_LAUNCHD_PLIST"
-  launchctl bootstrap "$MUSIC_INBOX_LAUNCHD_DOMAIN" "$MUSIC_INBOX_LAUNCHD_PLIST"
-  print 'Music Inbox background service installed and watching Queued.'
+  if ! launchctl bootstrap "$MUSIC_INBOX_LAUNCHD_DOMAIN" "$MUSIC_INBOX_LAUNCHD_PLIST"; then
+    print -u2 'Could not start the Music Inbox background service. Run: music-inbox start'
+    return 1
+  fi
+  if [[ "$replacing" == yes ]]; then
+    print 'Music Inbox background service refreshed and watching Queued.'
+  else
+    print 'Music Inbox background service installed and watching Queued.'
+  fi
 }
 
 music_inbox_start_service() {

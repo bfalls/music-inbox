@@ -53,6 +53,20 @@ music_inbox_disk_free_kib() {
   df -Pk "$1" 2>/dev/null | awk 'NR == 2 { print $4 }'
 }
 
+music_inbox_human_file_size() {
+  local file="$1" bytes
+  [[ -f "$file" ]] || return 1
+  bytes="$(stat -f '%z' "$file" 2>/dev/null || stat -c '%s' "$file" 2>/dev/null)" || return 1
+  awk -v bytes="$bytes" 'BEGIN {
+    split("B KiB MiB GiB TiB", units, " ")
+    size = bytes + 0
+    unit = 1
+    while (size >= 1024 && unit < 5) { size /= 1024; unit++ }
+    if (unit == 1) printf "%d %s", size, units[unit]
+    else printf "%.1f %s", size, units[unit]
+  }'
+}
+
 music_inbox_gpu_names() {
   command -v system_profiler >/dev/null 2>&1 || return 0
   system_profiler SPDisplaysDataType 2>/dev/null | \
