@@ -3,9 +3,11 @@
 set -euo pipefail
 SCRIPT_DIR="${0:A:h}"
 source "$SCRIPT_DIR/../lib/music-inbox.zsh"
+source "$SCRIPT_DIR/../lib/request.zsh"
+source "$SCRIPT_DIR/../lib/queue.zsh"
 
 usage() {
-  print "Usage: music-inbox <status|doctor|paths|log|install-transcription>"
+  print "Usage: music-inbox <status|doctor|paths|log|validate|install-transcription>"
 }
 
 music_inbox_load_config
@@ -56,6 +58,22 @@ case "${1:-status}" in
     ;;
   log)
     tail -n "${2:-60}" "$MUSIC_INBOX_LOG"
+    ;;
+  validate)
+    [[ -n "${2:-}" ]] || { print -u2 'Usage: music-inbox validate <request-note>'; exit 2; }
+    if ! music_inbox_parse_request "$2"; then
+      print -u2 "Invalid request: $MUSIC_INBOX_REQUEST_ERROR"
+      exit 1
+    fi
+    if ! music_inbox_request_preflight; then
+      print -u2 "Request cannot run: $MUSIC_INBOX_REQUEST_ERROR"
+      exit 1
+    fi
+    if duplicate_message="$(music_inbox_duplicate_problem)"; then
+      print -u2 "Duplicate request: $duplicate_message"
+      exit 1
+    fi
+    print "Request is valid and ready to process."
     ;;
   install-transcription)
     exec "$SCRIPT_DIR/../install.sh" --transcription-only

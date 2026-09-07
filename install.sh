@@ -109,6 +109,11 @@ fi
 mkdir -p "$CONFIG_DIR" "$inbox_root/1 Drafts" "$inbox_root/2 Queued" \
   "$inbox_root/3 Processing" "$inbox_root/4 Done" "$inbox_root/5 Failed" \
   "$local_root/media" "$local_root/state/models" "$APP_DIR" "$BIN_DIR"
+default_note="$inbox_root/1 Drafts/Default Music Request.md"
+if [[ ! -e "$default_note" ]]; then
+  cp "$PROJECT_DIR/templates/Default Music Request.md" "$default_note"
+  print "Created draft template: $default_note"
+fi
 umask 077
 {
   print -r -- "MUSIC_INBOX_ROOT=${(q)inbox_root}"

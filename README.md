@@ -31,6 +31,8 @@ The installer asks for the inbox root, a **local-only** data folder, browser-coo
 
 The default local-only folder is `~/Library/Application Support/music-inbox`. Do not place it in iCloud Drive, Dropbox, OneDrive, an Obsidian vault, or another sync service. It holds downloaded media, partial downloads, language models, logs, locks, and duplicate-processing state. The installer warns when the chosen path looks synced.
 
+Setup creates `1 Drafts/Default Music Request.md` without overwriting an existing copy. Duplicate that note, replace its example URL, uncomment the optional fields you want, and move the duplicate to `2 Queued`.
+
 ## Dependencies
 
 The worker requires `yt-dlp`, `ffmpeg`, `ffprobe`, and a JavaScript runtime such as Deno for YouTube challenge handling. `music-inbox doctor` detects common Homebrew and MacPorts locations. The installer reports missing tools and asks before installing them.
@@ -64,10 +66,23 @@ transcript-format: txt,srt
 
 Speech translation into English is planned as a later, separate option. Arbitrary target-language translation is not part of this local Whisper backend.
 
+## Request notes
+
+Only recognized `key: value` lines are processed; the rest of the Markdown note is yours to use. Validate a note without changing it:
+
+```bash
+music-inbox validate "/path/to/2 Queued/My request.md"
+```
+
+Supported request fields so far are `URL` (required), `playlist`, `create-playlist`, `transcribe`, `language`, `transcript-format`, and `translate`. `create-playlist` defaults to `no` and is ignored when `playlist` is absent. `translate: yes` produces an early explanatory failure until that future feature exists.
+
+Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `— error.md` note. Failed requests are deliberately **not** counted as duplicates.
+
 ## Development
 
 ```bash
 zsh tests/test-config.zsh
+zsh tests/test-request-and-queue.zsh
 ```
 
-Next milestones: a queue worker, Apple Music integration, launchd setup, transcription execution, and mocked end-to-end tests.
+Next milestones: queue-worker media processing, Apple Music integration, launchd setup, transcription execution, and mocked end-to-end tests.
