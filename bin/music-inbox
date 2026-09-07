@@ -5,7 +5,7 @@ SCRIPT_DIR="${0:A:h}"
 source "$SCRIPT_DIR/../lib/music-inbox.zsh"
 
 usage() {
-  print "Usage: music-inbox <status|doctor|paths|log>"
+  print "Usage: music-inbox <status|doctor|paths|log|install-transcription>"
 }
 
 music_inbox_load_config
@@ -14,14 +14,20 @@ case "${1:-status}" in
   status)
     print "Music Inbox"
     print "Root:       $MUSIC_INBOX_ROOT"
+    print "Local data: $MUSIC_INBOX_LOCAL_ROOT"
     print "Queued:     $(music_inbox_note_count "$MUSIC_INBOX_QUEUED")"
     print "Processing: $(music_inbox_note_count "$MUSIC_INBOX_PROCESSING")"
     print "Done:       $(music_inbox_note_count "$MUSIC_INBOX_DONE")"
     print "Failed:     $(music_inbox_note_count "$MUSIC_INBOX_FAILED")"
+    if problem="$(music_inbox_transcription_problem 2>/dev/null)"; then
+      print "Transcription: Ready ($MUSIC_INBOX_WHISPER_MODEL)"
+    else
+      print "Transcription: $problem"
+    fi
     ;;
   doctor)
     print "Music Inbox dependency check"
-    print "Architecture: $(uname -m)"
+    music_inbox_acceleration_summary
     for tool in yt-dlp ffmpeg ffprobe deno; do
       if path="$(music_inbox_find_tool "$tool")"; then
         print "✓ $tool: $path"
@@ -31,6 +37,13 @@ case "${1:-status}" in
     done
     command -v brew >/dev/null 2>&1 && print "Package manager: Homebrew ($(command -v brew))"
     command -v port >/dev/null 2>&1 && print "Package manager: MacPorts ($(command -v port))"
+    if whisper_path="$(music_inbox_find_whisper 2>/dev/null)"; then
+      print "✓ whisper: $whisper_path"
+    else
+      print "○ whisper: optional; run music-inbox install-transcription"
+    fi
+    print "Transcription enabled: $MUSIC_INBOX_TRANSCRIPTION_ENABLED"
+    print "Transcription model: $MUSIC_INBOX_WHISPER_MODEL_PATH"
     ;;
   paths)
     print "Drafts:     $MUSIC_INBOX_DRAFTS"
@@ -38,9 +51,14 @@ case "${1:-status}" in
     print "Processing: $MUSIC_INBOX_PROCESSING"
     print "Done:       $MUSIC_INBOX_DONE"
     print "Failed:     $MUSIC_INBOX_FAILED"
+    print "Local data: $MUSIC_INBOX_LOCAL_ROOT"
+    print "Models:     $MUSIC_INBOX_MODEL_DIR"
     ;;
   log)
     tail -n "${2:-60}" "$MUSIC_INBOX_LOG"
+    ;;
+  install-transcription)
+    exec "$SCRIPT_DIR/../install.sh" --transcription-only
     ;;
   help|-h|--help)
     usage

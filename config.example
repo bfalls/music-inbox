@@ -2,7 +2,17 @@
 # All paths are absolute so launchd receives the same configuration as Terminal.
 
 MUSIC_INBOX_ROOT="$HOME/Music Inbox"
+
+# Keep models, temporary media, logs, locks, and request history local. Do not
+# point this at an iCloud, Dropbox, Obsidian, or other synced folder.
+MUSIC_INBOX_LOCAL_ROOT="$HOME/Library/Application Support/music-inbox"
 MUSIC_INBOX_CLEANUP_AFTER_IMPORT=yes
 
 # Leave empty to download without browser cookies. Supported browsers depend on yt-dlp.
 MUSIC_INBOX_BROWSER=brave
+
+# Local, offline speech-to-text is optional. Use a multilingual model such as
+# "base" for languages beyond English. Model files live under .music-inbox/models.
+MUSIC_INBOX_TRANSCRIPTION_ENABLED=no
+MUSIC_INBOX_WHISPER_MODEL=base
+MUSIC_INBOX_TRANSCRIPT_FORMATS=txt
