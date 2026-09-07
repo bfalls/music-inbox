@@ -1,0 +1,22 @@
+#!/bin/zsh
+
+set -u
+SCRIPT_DIR="${0:A:h}"
+source "$SCRIPT_DIR/../lib/music-inbox.zsh"
+source "$SCRIPT_DIR/../lib/request.zsh"
+source "$SCRIPT_DIR/../lib/queue.zsh"
+source "$SCRIPT_DIR/../lib/media.zsh"
+source "$SCRIPT_DIR/../lib/worker.zsh"
+
+music_inbox_load_config
+
+music_inbox_run_queue() {
+  local note
+  local -a notes
+  notes=("$MUSIC_INBOX_QUEUED"/*.md(N) "$MUSIC_INBOX_QUEUED"/*.markdown(N))
+  for note in "${notes[@]}"; do
+    music_inbox_process_queued_note "$note" music_inbox_handle_media || true
+  done
+}
+
+music_inbox_with_worker_lock music_inbox_run_queue

@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/../lib/request.zsh"
 source "$SCRIPT_DIR/../lib/queue.zsh"
 
 usage() {
-  print "Usage: music-inbox <status|doctor|paths|log|validate|install-transcription>"
+  print "Usage: music-inbox <status|doctor|paths|log|validate|process|install-transcription>"
 }
 
 music_inbox_load_config
@@ -74,6 +74,9 @@ case "${1:-status}" in
       exit 1
     fi
     print "Request is valid and ready to process."
+    ;;
+  process)
+    exec "$SCRIPT_DIR/music-inbox-worker"
     ;;
   install-transcription)
     exec "$SCRIPT_DIR/../install.sh" --transcription-only

@@ -16,6 +16,7 @@ music_inbox_load_config() {
   : "${MUSIC_INBOX_LOCAL_ROOT:=$HOME/Library/Application Support/music-inbox}"
   : "${MUSIC_INBOX_CLEANUP_AFTER_IMPORT:=yes}"
   : "${MUSIC_INBOX_BROWSER:=}"
+  : "${MUSIC_INBOX_YTDLP_REMOTE_COMPONENTS:=ejs:github}"
   : "${MUSIC_INBOX_TRANSCRIPTION_ENABLED:=no}"
   : "${MUSIC_INBOX_WHISPER_MODEL:=base}"
   : "${MUSIC_INBOX_TRANSCRIPT_FORMATS:=txt}"

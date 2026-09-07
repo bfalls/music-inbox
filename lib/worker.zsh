@@ -20,7 +20,14 @@ music_inbox_process_queued_note() {
     music_inbox_fail_note "$processing_note" "$duplicate_message" >/dev/null
     return 1
   fi
-  "$handler" "$processing_note"
+  if ! "$handler" "$processing_note"; then
+    music_inbox_fail_note "$processing_note" "${MUSIC_INBOX_PROCESS_ERROR:-Media processing failed.}" >/dev/null
+    return 1
+  fi
+  music_inbox_mark_request_completed
+  local done_note
+  done_note="$(music_inbox_move_note "$processing_note" "$MUSIC_INBOX_DONE")" || return 1
+  music_inbox_write_result_note "$done_note"
 }
 
 music_inbox_with_worker_lock() {

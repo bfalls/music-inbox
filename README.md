@@ -35,7 +35,7 @@ Setup creates `1 Drafts/Default Music Request.md` without overwriting an existin
 
 ## Dependencies
 
-The worker requires `yt-dlp`, `ffmpeg`, `ffprobe`, and a JavaScript runtime such as Deno for YouTube challenge handling. `music-inbox doctor` detects common Homebrew and MacPorts locations. The installer reports missing tools and asks before installing them.
+The worker requires `yt-dlp`, `ffmpeg`, `ffprobe`, and a JavaScript runtime such as Deno for YouTube challenge handling. By default it lets yt-dlp obtain its EJS challenge component from GitHub; this advanced option can be disabled in the local configuration. `music-inbox doctor` detects common Homebrew and MacPorts locations. The installer reports missing tools and asks before installing them.
 
 Use one package manager consistently. The installer uses a package manager already present on the Mac; when both Homebrew and MacPorts are available, it asks which one to use. It never installs a package manager itself.
 
@@ -78,11 +78,22 @@ Supported request fields so far are `URL` (required), `playlist`, `create-playli
 
 Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `— error.md` note. Failed requests are deliberately **not** counted as duplicates.
 
+## Process queued requests
+
+Run one safe queue pass manually with:
+
+```bash
+music-inbox process
+```
+
+Each request is checked before download. If a playlist is named, Music Inbox verifies it exists before downloading; `create-playlist: yes` permits the later import step to create a missing playlist. Audio is downloaded to the local-only data directory using a filesystem-safe video-title-and-ID name, imported into Music, and only then removed when cleanup is enabled. A successful request moves to `4 Done` with a companion result note and a completed-request record.
+
 ## Development
 
 ```bash
 zsh tests/test-config.zsh
 zsh tests/test-request-and-queue.zsh
+zsh tests/test-media-handler.zsh
 ```
 
 Next milestones: queue-worker media processing, Apple Music integration, launchd setup, transcription execution, and mocked end-to-end tests.

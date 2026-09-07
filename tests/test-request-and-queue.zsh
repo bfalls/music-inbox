@@ -12,6 +12,7 @@ print -r -- "MUSIC_INBOX_LOCAL_ROOT=$TEST_ROOT/local" >> "$TEST_ROOT/config/conf
 MUSIC_INBOX_CONFIG="$TEST_ROOT/config/config.env" source "$PROJECT_DIR/lib/music-inbox.zsh"
 source "$PROJECT_DIR/lib/request.zsh"
 source "$PROJECT_DIR/lib/queue.zsh"
+source "$PROJECT_DIR/lib/media.zsh"
 source "$PROJECT_DIR/lib/worker.zsh"
 MUSIC_INBOX_CONFIG="$TEST_ROOT/config/config.env" music_inbox_load_config
 
@@ -59,12 +60,15 @@ print 'ok - checks requested capabilities before download'
 ready_note="$MUSIC_INBOX_QUEUED/Ready.md"
 print 'URL: https://youtu.be/ready' > "$ready_note"
 test_handler() {
+  MUSIC_INBOX_VIDEO_TITLE='Test video'
+  MUSIC_INBOX_VIDEO_ID='test-id'
   [[ -f "$1" && "$1" == "$MUSIC_INBOX_PROCESSING"/* ]]
 }
 music_inbox_with_worker_lock music_inbox_process_queued_note "$ready_note" test_handler
-[[ -f "$MUSIC_INBOX_PROCESSING/Ready.md" ]]
+[[ -f "$MUSIC_INBOX_DONE/Ready.md" ]]
+[[ -f "$MUSIC_INBOX_DONE/Ready — result.md" ]]
 [[ ! -d "$MUSIC_INBOX_WORKER_LOCK" ]]
-print 'ok - claims a valid request under a single-worker lock'
+print 'ok - claims a valid request under a single-worker lock and finalizes it'
 
 transcript_note="$MUSIC_INBOX_QUEUED/Needs Whisper.md"
 {

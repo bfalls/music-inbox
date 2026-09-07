@@ -11,6 +11,9 @@ MUSIC_INBOX_CLEANUP_AFTER_IMPORT=yes
 # Leave empty to download without browser cookies. Supported browsers depend on yt-dlp.
 MUSIC_INBOX_BROWSER=brave
 
+# Required by recent YouTube JavaScript challenges. Set empty to disable.
+MUSIC_INBOX_YTDLP_REMOTE_COMPONENTS=ejs:github
+
 # Local, offline speech-to-text is optional. Use a multilingual model such as
 # "base" for languages beyond English. Model files live under .music-inbox/models.
 MUSIC_INBOX_TRANSCRIPTION_ENABLED=no

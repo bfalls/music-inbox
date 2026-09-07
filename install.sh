@@ -41,6 +41,7 @@ existing_root="$DEFAULT_ROOT"
 existing_local_root="$DEFAULT_LOCAL_ROOT"
 existing_cleanup=yes
 existing_browser=brave
+existing_remote_components=ejs:github
 existing_transcription=no
 existing_model=base
 existing_formats=txt
@@ -50,6 +51,7 @@ if [[ -r "$CONFIG_FILE" ]]; then
   existing_local_root="${MUSIC_INBOX_LOCAL_ROOT:-$existing_local_root}"
   existing_cleanup="${MUSIC_INBOX_CLEANUP_AFTER_IMPORT:-$existing_cleanup}"
   existing_browser="${MUSIC_INBOX_BROWSER:-$existing_browser}"
+  existing_remote_components="${MUSIC_INBOX_YTDLP_REMOTE_COMPONENTS:-$existing_remote_components}"
   existing_transcription="${MUSIC_INBOX_TRANSCRIPTION_ENABLED:-$existing_transcription}"
   existing_model="${MUSIC_INBOX_WHISPER_MODEL:-$existing_model}"
   existing_formats="${MUSIC_INBOX_TRANSCRIPT_FORMATS:-$existing_formats}"
@@ -69,11 +71,13 @@ if [[ "$TRANSCRIPTION_ONLY" == true ]]; then
   local_root="$existing_local_root"
   cleanup="$existing_cleanup"
   browser="$existing_browser"
+  remote_components="$existing_remote_components"
 else
   inbox_root="$(prompt_with_default 'Inbox root folder' "$existing_root")"
   local_root="$(prompt_with_default 'Local-only folder for models, logs, and temporary media' "$existing_local_root")"
   cleanup="$(prompt_with_default 'Remove temporary MP3 after a confirmed Music import? (yes/no)' "$existing_cleanup")"
   browser="$(prompt_with_default 'Browser for yt-dlp cookies (leave blank for none)' "$existing_browser")"
+  remote_components="$existing_remote_components"
 fi
 transcription="$(prompt_with_default 'Enable local transcription? (yes/no)' "$existing_transcription")"
 whisper_model="$existing_model"
@@ -120,6 +124,7 @@ umask 077
   print -r -- "MUSIC_INBOX_LOCAL_ROOT=${(q)local_root}"
   print -r -- "MUSIC_INBOX_CLEANUP_AFTER_IMPORT=${(q)cleanup}"
   print -r -- "MUSIC_INBOX_BROWSER=${(q)browser}"
+  print -r -- "MUSIC_INBOX_YTDLP_REMOTE_COMPONENTS=${(q)remote_components}"
   print -r -- "MUSIC_INBOX_TRANSCRIPTION_ENABLED=${(q)transcription}"
   print -r -- "MUSIC_INBOX_WHISPER_MODEL=${(q)whisper_model}"
   print -r -- "MUSIC_INBOX_TRANSCRIPT_FORMATS=${(q)formats}"
@@ -129,7 +134,7 @@ chmod 600 "$CONFIG_FILE"
 mkdir -p "$APP_DIR/bin" "$APP_DIR/lib"
 cp -R "$PROJECT_DIR/bin/." "$APP_DIR/bin/"
 cp -R "$PROJECT_DIR/lib/." "$APP_DIR/lib/"
-chmod 755 "$APP_DIR/bin/music-inbox"
+chmod 755 "$APP_DIR/bin/music-inbox" "$APP_DIR/bin/music-inbox-worker"
 ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
 
 missing_tools=()
