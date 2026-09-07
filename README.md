@@ -29,7 +29,7 @@ cd music-inbox
 
 The installer asks for the inbox root, a **local-only** data folder, browser-cookie preference, whether to remove the temporary MP3 after a confirmed Music import, and whether to enable optional local transcription. It stores the answers in `~/.config/music-inbox/config.env` with owner-only permissions and keeps its installed program files in `~/Library/Application Support/music-inbox`.
 
-The installer places the `music-inbox` command in `/usr/local/bin` and registers that standard macOS command location in `/etc/paths.d`. Immediately before requesting an administrator password, it explains that permission is used only for those two shared system locations; the worker, notes, media, and models continue to run as your user. No shell-profile edits, reboot, or manual PATH setup are needed for a normal macOS Terminal shell.
+The installer places the `music-inbox` command in `/usr/local/bin` and registers that standard macOS command location in `/etc/paths.d`. Immediately before requesting an administrator password, it explains that permission is used only for those two shared system locations; the worker, notes, media, and models continue to run as your user. No shell-profile edits, reboot, or manual PATH setup are needed for a normal macOS Terminal shell. At the end of normal setup, it also asks whether to install the optional user-level background service.
 
 The default local-only folder is `~/Library/Application Support/music-inbox`. Do not place it in iCloud Drive, Dropbox, OneDrive, an Obsidian vault, or another sync service. It holds downloaded media, partial downloads, language models, logs, locks, and duplicate-processing state. The installer warns when the chosen path looks synced.
 
@@ -97,12 +97,33 @@ music-inbox process
 
 Each request is checked before download. If a playlist is named, Music Inbox verifies it exists before downloading; `create-playlist: yes` permits the later import step to create a missing playlist. Audio is downloaded to the local-only data directory using a filesystem-safe video-title-and-ID name, imported into Music, and only then removed when cleanup is enabled. A successful request moves to `4 Done` with a companion result note and a completed-request record.
 
+## Background service
+
+After a successful manual request, install the user-level background service:
+
+```bash
+music-inbox install-service
+```
+
+It creates `~/Library/LaunchAgents/com.music-inbox.worker.plist`, runs only as your logged-in user, watches `2 Queued`, and writes its log under the local-only data folder. It is deliberately not a system daemon and does not run with administrator privileges.
+
+```bash
+music-inbox status
+music-inbox stop
+music-inbox start
+music-inbox restart
+music-inbox uninstall-service
+```
+
+`uninstall-service` unloads only the LaunchAgent and moves its plist to Trash. It does not remove your inbox notes, configuration, downloaded models, or Music library.
+
 ## Development
 
 ```bash
 zsh tests/test-config.zsh
 zsh tests/test-request-and-queue.zsh
 zsh tests/test-media-handler.zsh
+zsh tests/test-launchd.zsh
 ```
 
 Next milestones: queue-worker media processing, Apple Music integration, launchd setup, transcription execution, and mocked end-to-end tests.

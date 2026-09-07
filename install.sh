@@ -275,6 +275,18 @@ if [[ "${transcription:l}" == yes ]]; then
   fi
 fi
 
+if [[ "$TRANSCRIPTION_ONLY" == false ]]; then
+  print
+  print "Background service (optional)"
+  print "It runs as your user, watches the Queued folder, and processes new request notes automatically."
+  print "Choose no to run requests manually with: music-inbox process"
+  if confirm "Install and start the background service now?"; then
+    "$APP_DIR/bin/music-inbox" install-service
+  else
+    print "Skipped background service installation. Run: music-inbox install-service"
+  fi
+fi
+
 print
 print "Installed command: $BIN_DIR/music-inbox"
 print "Configuration: $CONFIG_FILE"
