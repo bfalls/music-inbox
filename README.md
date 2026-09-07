@@ -35,6 +35,13 @@ The default local-only folder is `~/Library/Application Support/music-inbox`. Do
 
 Setup creates `1 Drafts/Default Music Request.md`. On an upgrade, an unchanged template updates automatically. A customized or unknown template is preserved and the new shipped version is added as `Default Music Request v<N>.md`. Duplicate the template you prefer, replace its example URL, uncomment the optional fields you want, and move the duplicate to `2 Queued`.
 
+During setup, choose the request-template style that matches where you edit notes:
+
+- **Obsidian** uses `%% … %%` comments, so Obsidian’s comment-toggle hotkey can activate an individual option line.
+- **Standard** uses portable HTML comments (`<!-- … -->`) for regular Markdown editors and folders.
+
+Both styles produce the same request fields once an option is uncommented.
+
 ## Dependencies
 
 The worker requires `yt-dlp`, `ffmpeg`, `ffprobe`, and a JavaScript runtime such as Deno for YouTube challenge handling. By default it lets yt-dlp obtain its EJS challenge component from GitHub; this advanced option can be disabled in the local configuration. `music-inbox doctor` detects common Homebrew and MacPorts locations. The installer reports missing tools and asks before installing them.

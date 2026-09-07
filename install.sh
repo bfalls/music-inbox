@@ -43,6 +43,7 @@ existing_local_root="$DEFAULT_LOCAL_ROOT"
 existing_cleanup=yes
 existing_browser=brave
 existing_remote_components=ejs:github
+existing_template_style=standard
 existing_transcription=no
 existing_model=base
 existing_formats=txt
@@ -53,6 +54,7 @@ if [[ -r "$CONFIG_FILE" ]]; then
   existing_cleanup="${MUSIC_INBOX_CLEANUP_AFTER_IMPORT:-$existing_cleanup}"
   existing_browser="${MUSIC_INBOX_BROWSER:-$existing_browser}"
   existing_remote_components="${MUSIC_INBOX_YTDLP_REMOTE_COMPONENTS:-$existing_remote_components}"
+  existing_template_style="${MUSIC_INBOX_TEMPLATE_STYLE:-$existing_template_style}"
   existing_transcription="${MUSIC_INBOX_TRANSCRIPTION_ENABLED:-$existing_transcription}"
   existing_model="${MUSIC_INBOX_WHISPER_MODEL:-$existing_model}"
   existing_formats="${MUSIC_INBOX_TRANSCRIPT_FORMATS:-$existing_formats}"
@@ -73,12 +75,16 @@ if [[ "$TRANSCRIPTION_ONLY" == true ]]; then
   cleanup="$existing_cleanup"
   browser="$existing_browser"
   remote_components="$existing_remote_components"
+  template_style="$existing_template_style"
 else
   inbox_root="$(prompt_with_default 'Inbox root folder' "$existing_root")"
   local_root="$(prompt_with_default 'Local-only folder for models, logs, and temporary media' "$existing_local_root")"
   cleanup="$(prompt_with_default 'Remove temporary MP3 after a confirmed Music import? (yes/no)' "$existing_cleanup")"
   browser="$(prompt_with_default 'Browser for yt-dlp cookies (leave blank for none)' "$existing_browser")"
   remote_components="$existing_remote_components"
+  suggested_template_style="$existing_template_style"
+  [[ "$inbox_root" == *obsidian* ]] && suggested_template_style=obsidian
+  template_style="$(prompt_with_default 'Request template style (obsidian or standard)' "$suggested_template_style")"
 fi
 transcription="$(prompt_with_default 'Enable local transcription? (yes/no)' "$existing_transcription")"
 whisper_model="$existing_model"
@@ -98,6 +104,10 @@ case "${transcription:l}" in
   yes|no) ;;
   *) print -u2 "Please answer yes or no for transcription."; exit 2 ;;
 esac
+case "${template_style:l}" in
+  obsidian|standard) template_style="${template_style:l}" ;;
+  *) print -u2 "Template style must be obsidian or standard."; exit 2 ;;
+esac
 if looks_like_synced_path "$local_root"; then
   print -u2 "Warning: that local-data folder looks like a synced location. Models and temporary media should stay on this Mac."
   if ! confirm "Use this location anyway?"; then
@@ -114,7 +124,9 @@ fi
 mkdir -p "$CONFIG_DIR" "$inbox_root/1 Drafts" "$inbox_root/2 Queued" \
   "$inbox_root/3 Processing" "$inbox_root/4 Done" "$inbox_root/5 Failed" \
   "$local_root/media" "$local_root/state/models" "$APP_DIR"
-music_inbox_install_default_request_template "$PROJECT_DIR/templates/Default Music Request.md" \
+template_source="$PROJECT_DIR/templates/Default Music Request.md"
+[[ "$template_style" == obsidian ]] && template_source="$PROJECT_DIR/templates/Default Music Request (Obsidian).md"
+music_inbox_install_default_request_template "$template_source" \
   "$inbox_root/1 Drafts" "$local_root/state"
 umask 077
 {
@@ -123,6 +135,7 @@ umask 077
   print -r -- "MUSIC_INBOX_CLEANUP_AFTER_IMPORT=${(q)cleanup}"
   print -r -- "MUSIC_INBOX_BROWSER=${(q)browser}"
   print -r -- "MUSIC_INBOX_YTDLP_REMOTE_COMPONENTS=${(q)remote_components}"
+  print -r -- "MUSIC_INBOX_TEMPLATE_STYLE=${(q)template_style}"
   print -r -- "MUSIC_INBOX_TRANSCRIPTION_ENABLED=${(q)transcription}"
   print -r -- "MUSIC_INBOX_WHISPER_MODEL=${(q)whisper_model}"
   print -r -- "MUSIC_INBOX_TRANSCRIPT_FORMATS=${(q)formats}"

@@ -31,6 +31,16 @@ music_inbox_parse_request "$note"
 [[ "$MUSIC_INBOX_REQUEST_CREATE_PLAYLIST" == no ]]
 print 'ok - parses known fields and ignores ordinary Markdown'
 
+obsidian_note="$MUSIC_INBOX_QUEUED/Obsidian.md"
+{
+  print 'URL: https://youtu.be/obsidian'
+  print '%% playlist: Coding Focus %%'
+  print '%% transcribe: yes %%'
+} > "$obsidian_note"
+music_inbox_parse_request "$obsidian_note"
+[[ -z "$MUSIC_INBOX_REQUEST_PLAYLIST" && "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == no ]]
+print 'ok - ignores Obsidian-commented request fields'
+
 no_playlist="$MUSIC_INBOX_QUEUED/No Playlist.md"
 {
   print 'URL: https://youtu.be/no-playlist'

@@ -1,2 +1,3 @@
 # The empty URL field deliberately ends with one editable space.
 "templates/Default Music Request.md" whitespace=-trailing-space
+"templates/Default Music Request (Obsidian).md" whitespace=-trailing-space

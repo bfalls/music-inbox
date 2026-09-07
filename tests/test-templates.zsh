@@ -8,6 +8,7 @@ trap 'rm -rf "$TEST_ROOT"' EXIT
 source "$PROJECT_DIR/lib/templates.zsh"
 
 source_template="$PROJECT_DIR/templates/Default Music Request.md"
+obsidian_template="$PROJECT_DIR/templates/Default Music Request (Obsidian).md"
 drafts="$TEST_ROOT/1 Drafts"
 state="$TEST_ROOT/state"
 canonical="$drafts/Default Music Request.md"
@@ -31,3 +32,8 @@ music_inbox_install_default_request_template "$new_source" "$fresh_drafts" "$fre
 rg -q 'music-inbox-template-version: 2' "$fresh_drafts/Default Music Request.md"
 [[ ! -e "$fresh_drafts/Default Music Request v2.md" ]]
 print 'ok - updates an unchanged managed template in place'
+
+obsidian_drafts="$TEST_ROOT/obsidian/1 Drafts"
+music_inbox_install_default_request_template "$obsidian_template" "$obsidian_drafts" "$TEST_ROOT/obsidian/state" >/dev/null
+rg -q '^%% playlist: Coding Focus %%$' "$obsidian_drafts/Default Music Request.md"
+print 'ok - installs an Obsidian-native comment template'
