@@ -1,10 +1,8 @@
 # music-inbox
 
-A macOS folder-to-Music automation: place a URL request in a queue, download and tag its audio with yt-dlp, then import it into Apple Music.
+![Music Inbox workflow: request files flow through folders, audio, transcripts, and a music library](assets/music-inbox-hero.png)
 
-## Status
-
-This repository is the portable foundation for Music Inbox. It intentionally contains no browser cookies, media, personal paths, request history, or user configuration.
+A macOS folder-based media workflow: queue an online video URL to download and tag its audio with yt-dlp, import it into Apple Music, or produce local transcripts and English translations with Whisper.
 
 The initial setup creates this folder hierarchy from one chosen root:
 
@@ -21,7 +19,7 @@ That root may be synced—for example, an Obsidian vault in iCloud—because it 
 ## Setup
 
 ```bash
-git clone https://github.com/OWNER/music-inbox.git
+git clone https://github.com/bfalls/music-inbox.git
 cd music-inbox
 ./install.sh
 ./bin/music-inbox doctor
@@ -169,11 +167,6 @@ music-inbox uninstall-service
 
 `uninstall-service` unloads only the LaunchAgent and moves its plist to Trash. It does not remove your inbox notes, configuration, downloaded models, or Music library.
 
-## Development
+## Contributing
 
-```bash
-zsh tests/test-config.zsh
-zsh tests/test-request-and-queue.zsh
-zsh tests/test-media-handler.zsh
-zsh tests/test-launchd.zsh
-```
+Contributions and bug reports are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the local test commands.
