@@ -1,6 +1,6 @@
 # Music request
 
-<!-- music-inbox-template-version: 3 -->
+<!-- music-inbox-template-version: 1 -->
 
 <!--
 Duplicate this note, fill in the URL, then move the copy to `2 Queued`.
@@ -9,7 +9,7 @@ Music Inbox reads only the recognized `field: value` lines below. Everything
 else in this note is for your own context and is ignored.
 -->
 
-URL:
+URL: 
 
 <!-- Example: URL: https://youtu.be/your-video-id -->
 
