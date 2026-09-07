@@ -1,0 +1,56 @@
+#!/bin/zsh
+
+set -euo pipefail
+SCRIPT_DIR="${0:A:h}"
+source "$SCRIPT_DIR/../lib/music-inbox.zsh"
+
+usage() {
+  print "Usage: music-inbox <status|doctor|paths|log>"
+}
+
+music_inbox_load_config
+
+case "${1:-status}" in
+  status)
+    print "Music Inbox"
+    print "Root:       $MUSIC_INBOX_ROOT"
+    print "Queued:     $(music_inbox_note_count "$MUSIC_INBOX_QUEUED")"
+    print "Processing: $(music_inbox_note_count "$MUSIC_INBOX_PROCESSING")"
+    print "Done:       $(music_inbox_note_count "$MUSIC_INBOX_DONE")"
+    print "Failed:     $(music_inbox_note_count "$MUSIC_INBOX_FAILED")"
+    ;;
+  doctor)
+    print "Music Inbox dependency check"
+    for tool in yt-dlp ffmpeg ffprobe deno; do
+      if path="$(music_inbox_find_tool "$tool")"; then
+        print "✓ $tool: $path"
+      else
+        print "✗ $tool: not found"
+      fi
+    done
+    if command -v brew >/dev/null 2>&1; then
+      print "Package manager: Homebrew ($(command -v brew))"
+    fi
+    if command -v port >/dev/null 2>&1; then
+      print "Package manager: MacPorts ($(command -v port))"
+    fi
+    ;;
+  paths)
+    print "Drafts:     $MUSIC_INBOX_DRAFTS"
+    print "Queued:     $MUSIC_INBOX_QUEUED"
+    print "Processing: $MUSIC_INBOX_PROCESSING"
+    print "Done:       $MUSIC_INBOX_DONE"
+    print "Failed:     $MUSIC_INBOX_FAILED"
+    ;;
+  log)
+    tail -n "${2:-60}" "$MUSIC_INBOX_LOG"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    print -u2 "Unknown command: $1"
+    usage
+    exit 2
+    ;;
+esac

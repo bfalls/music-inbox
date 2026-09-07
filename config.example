@@ -1,0 +1,8 @@
+# Copying this file is not required: install.sh creates ~/.config/music-inbox/config.env.
+# All paths are absolute so launchd receives the same configuration as Terminal.
+
+MUSIC_INBOX_ROOT="$HOME/Music Inbox"
+MUSIC_INBOX_CLEANUP_AFTER_IMPORT=yes
+
+# Leave empty to download without browser cookies. Supported browsers depend on yt-dlp.
+MUSIC_INBOX_BROWSER=brave

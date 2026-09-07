@@ -1,0 +1,7 @@
+# User configuration and runtime state
+.music-inbox/
+config.env
+*.log
+
+# Downloaded media must never be committed
+media/
