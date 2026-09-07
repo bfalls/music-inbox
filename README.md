@@ -29,7 +29,7 @@ cd music-inbox
 
 The installer asks for the inbox root, a **local-only** data folder, browser-cookie preference, whether to remove the temporary MP3 after a confirmed Music import, and whether to enable optional local transcription. It stores the answers in `~/.config/music-inbox/config.env` with owner-only permissions and keeps its installed program files in `~/Library/Application Support/music-inbox`.
 
-The installer places the `music-inbox` command in `/usr/local/bin` and registers that standard macOS command location in `/etc/paths.d`. It may request your administrator password for those two shared system locations. No shell-profile edits, reboot, or manual PATH setup are needed for a normal macOS Terminal shell.
+The installer places the `music-inbox` command in `/usr/local/bin` and registers that standard macOS command location in `/etc/paths.d`. Immediately before requesting an administrator password, it explains that permission is used only for those two shared system locations; the worker, notes, media, and models continue to run as your user. No shell-profile edits, reboot, or manual PATH setup are needed for a normal macOS Terminal shell.
 
 The default local-only folder is `~/Library/Application Support/music-inbox`. Do not place it in iCloud Drive, Dropbox, OneDrive, an Obsidian vault, or another sync service. It holds downloaded media, partial downloads, language models, logs, locks, and duplicate-processing state. The installer warns when the chosen path looks synced.
 

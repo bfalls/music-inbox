@@ -139,13 +139,28 @@ chmod 755 "$APP_DIR/bin/music-inbox" "$APP_DIR/bin/music-inbox-worker"
 # /usr/local/bin is the macOS convention for a user-installed CLI. Most Macs
 # already include it in PATH; /etc/paths.d ensures future standard login shells
 # do as well. Administrator approval is only needed for those shared locations.
-if [[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]]; then
-  sudo /bin/mkdir -p "$BIN_DIR"
-fi
 if [[ -e "$BIN_DIR/music-inbox" && ! -L "$BIN_DIR/music-inbox" ]]; then
   print -u2 "Refusing to replace existing non-link command: $BIN_DIR/music-inbox"
   print -u2 "Move it aside yourself, then run this installer again."
   exit 1
+fi
+needs_admin=no
+[[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]] && needs_admin=yes
+paths_entry=''
+[[ -r /etc/paths.d/music-inbox ]] && paths_entry="$(< /etc/paths.d/music-inbox)"
+if [[ "$paths_entry" != /usr/local/bin ]]; then
+  needs_admin=yes
+fi
+if [[ "$needs_admin" == yes ]]; then
+  print
+  print "Administrator permission is required next."
+  print "macOS will ask for your password so Music Inbox can install its command in /usr/local/bin"
+  print "and register that standard command location for future Terminal sessions."
+  print "The Music Inbox worker, its notes, media, and models will still run only as your user."
+  sudo -v
+fi
+if [[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]]; then
+  sudo /bin/mkdir -p "$BIN_DIR"
 fi
 if [[ -w "$BIN_DIR" ]]; then
   ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
@@ -190,6 +205,7 @@ if (( ${#missing_tools} )); then
       *) print -u2 "Unsupported package manager: $preferred"; exit 2 ;;
     esac
     if confirm "Install missing dependencies with $preferred?"; then
+      [[ "$preferred" == port ]] && print "MacPorts may ask for the same administrator password to install its packages."
       if [[ "$preferred" == brew ]]; then
         packages=()
         (( ${missing_tools[(I)yt-dlp]} )) && packages+=(yt-dlp)
