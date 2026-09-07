@@ -7,8 +7,8 @@ set -euo pipefail
 PROJECT_DIR="${0:A:h}"
 CONFIG_DIR="$HOME/.config/music-inbox"
 CONFIG_FILE="$CONFIG_DIR/config.env"
-APP_DIR="$HOME/.local/share/music-inbox"
-BIN_DIR="$HOME/.local/bin"
+APP_DIR="$HOME/Library/Application Support/music-inbox"
+BIN_DIR="/usr/local/bin"
 DEFAULT_ROOT="$HOME/Music Inbox"
 DEFAULT_LOCAL_ROOT="$HOME/Library/Application Support/music-inbox"
 TRANSCRIPTION_ONLY=false
@@ -112,7 +112,7 @@ fi
 
 mkdir -p "$CONFIG_DIR" "$inbox_root/1 Drafts" "$inbox_root/2 Queued" \
   "$inbox_root/3 Processing" "$inbox_root/4 Done" "$inbox_root/5 Failed" \
-  "$local_root/media" "$local_root/state/models" "$APP_DIR" "$BIN_DIR"
+  "$local_root/media" "$local_root/state/models" "$APP_DIR"
 default_note="$inbox_root/1 Drafts/Default Music Request.md"
 if [[ ! -e "$default_note" ]]; then
   cp "$PROJECT_DIR/templates/Default Music Request.md" "$default_note"
@@ -135,7 +135,31 @@ mkdir -p "$APP_DIR/bin" "$APP_DIR/lib"
 cp -R "$PROJECT_DIR/bin/." "$APP_DIR/bin/"
 cp -R "$PROJECT_DIR/lib/." "$APP_DIR/lib/"
 chmod 755 "$APP_DIR/bin/music-inbox" "$APP_DIR/bin/music-inbox-worker"
-ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
+
+# /usr/local/bin is the macOS convention for a user-installed CLI. Most Macs
+# already include it in PATH; /etc/paths.d ensures future standard login shells
+# do as well. Administrator approval is only needed for those shared locations.
+if [[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]]; then
+  sudo /bin/mkdir -p "$BIN_DIR"
+fi
+if [[ -e "$BIN_DIR/music-inbox" && ! -L "$BIN_DIR/music-inbox" ]]; then
+  print -u2 "Refusing to replace existing non-link command: $BIN_DIR/music-inbox"
+  print -u2 "Move it aside yourself, then run this installer again."
+  exit 1
+fi
+if [[ -w "$BIN_DIR" ]]; then
+  ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
+else
+  sudo /bin/ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
+fi
+if [[ ! -d /etc/paths.d || ! -w /etc/paths.d ]]; then
+  sudo /bin/mkdir -p /etc/paths.d
+fi
+if [[ -w /etc/paths.d ]]; then
+  print -r -- /usr/local/bin > /etc/paths.d/music-inbox
+else
+  print -r -- /usr/local/bin | sudo /usr/bin/tee /etc/paths.d/music-inbox >/dev/null
+fi
 
 missing_tools=()
 base_tools=()
@@ -230,6 +254,6 @@ print "Configuration: $CONFIG_FILE"
 print "Inbox root: $inbox_root"
 print "Local-only data: $local_root"
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
-  print "Add $BIN_DIR to your shell PATH to run music-inbox from anywhere."
+  print "This shell has a custom PATH. Standard new macOS Terminal sessions will include $BIN_DIR automatically."
 fi
 print "Next: music-inbox doctor"
