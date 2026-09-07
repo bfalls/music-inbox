@@ -15,6 +15,7 @@ music_inbox_reset_request() {
   MUSIC_INBOX_REQUEST_URL=''
   MUSIC_INBOX_REQUEST_PLAYLIST=''
   MUSIC_INBOX_REQUEST_CREATE_PLAYLIST=no
+  MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC=yes
   MUSIC_INBOX_REQUEST_TRANSCRIBE=no
   MUSIC_INBOX_REQUEST_LANGUAGE=''
   MUSIC_INBOX_REQUEST_FORMATS=''
@@ -34,7 +35,7 @@ music_inbox_parse_request() {
     value="$(music_inbox_trim "${line#*:}")"
     normalized="${field:l}"
     case "$normalized" in
-      url|playlist|create-playlist|transcribe|language|transcript-format|translate)
+      url|playlist|create-playlist|import-to-music|transcribe|language|transcript-format|translate)
         if [[ -n "${seen[$normalized]:-}" ]]; then
           MUSIC_INBOX_REQUEST_ERROR="The '$normalized' field appears more than once."
           return 1
@@ -47,6 +48,7 @@ music_inbox_parse_request() {
       url) MUSIC_INBOX_REQUEST_URL="$value" ;;
       playlist) MUSIC_INBOX_REQUEST_PLAYLIST="$value" ;;
       create-playlist) MUSIC_INBOX_REQUEST_CREATE_PLAYLIST="${value:l}" ;;
+      import-to-music) MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC="${value:l}" ;;
       transcribe) MUSIC_INBOX_REQUEST_TRANSCRIBE="${value:l}" ;;
       language) MUSIC_INBOX_REQUEST_LANGUAGE="${value:l}" ;;
       transcript-format) MUSIC_INBOX_REQUEST_FORMATS="${value:l}" ;;
@@ -64,13 +66,17 @@ music_inbox_validate_request() {
     MUSIC_INBOX_REQUEST_ERROR="URL must begin with http:// or https://"
     return 1
   }
-  for field in MUSIC_INBOX_REQUEST_TRANSCRIBE MUSIC_INBOX_REQUEST_TRANSLATE; do
+  for field in MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC MUSIC_INBOX_REQUEST_TRANSCRIBE MUSIC_INBOX_REQUEST_TRANSLATE; do
     [[ "${(P)field}" == yes || "${(P)field}" == no ]] || {
       MUSIC_INBOX_REQUEST_ERROR="${field#MUSIC_INBOX_REQUEST_} must be yes or no."
       return 1
     }
   done
-  if [[ -n "$MUSIC_INBOX_REQUEST_PLAYLIST" ]]; then
+  if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == no ]]; then
+    # Playlist settings do not apply to a transcript-only request.
+    MUSIC_INBOX_REQUEST_PLAYLIST=''
+    MUSIC_INBOX_REQUEST_CREATE_PLAYLIST=no
+  elif [[ -n "$MUSIC_INBOX_REQUEST_PLAYLIST" ]]; then
     [[ "$MUSIC_INBOX_REQUEST_CREATE_PLAYLIST" == yes || "$MUSIC_INBOX_REQUEST_CREATE_PLAYLIST" == no ]] || {
       MUSIC_INBOX_REQUEST_ERROR="create-playlist must be yes or no."
       return 1
@@ -91,18 +97,22 @@ music_inbox_validate_request() {
       }
     done
   fi
+  if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == no && "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == no && "$MUSIC_INBOX_REQUEST_TRANSLATE" == no ]]; then
+    MUSIC_INBOX_REQUEST_ERROR="Set transcribe: yes or translate: yes when import-to-music: no."
+    return 1
+  fi
   return 0
 }
 
 music_inbox_request_preflight() {
-  if [[ "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]]; then
-    MUSIC_INBOX_REQUEST_ERROR="Translation is not available yet. Remove 'translate: yes' or wait for a future release."
-    return 1
-  fi
-  if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes ]]; then
+  if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes || "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]]; then
     if ! MUSIC_INBOX_REQUEST_ERROR="$(music_inbox_transcription_problem)"; then
       return 1
     fi
+  fi
+  if [[ "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes && ( "$MUSIC_INBOX_WHISPER_MODEL" == *.en || "${MUSIC_INBOX_WHISPER_MODEL_PATH:t}" == *.en.bin ) ]]; then
+    MUSIC_INBOX_REQUEST_ERROR="Translation needs a multilingual Whisper model (for example: base), not the English-only $MUSIC_INBOX_WHISPER_MODEL model. Run: music-inbox install-transcription"
+    return 1
   fi
   return 0
 }

@@ -12,6 +12,8 @@ mkdir -p "$TEST_ROOT/config" "$TEST_ROOT/inbox/2 Queued" "$TEST_ROOT/mock-bin"
   print -r -- "MUSIC_INBOX_LOCAL_ROOT=$TEST_ROOT/local"
   print -r -- 'MUSIC_INBOX_BROWSER='
   print -r -- 'MUSIC_INBOX_CLEANUP_AFTER_IMPORT=yes'
+  print -r -- 'MUSIC_INBOX_TRANSCRIPTION_ENABLED=yes'
+  print -r -- 'MUSIC_INBOX_WHISPER_MODEL=base'
 } > "$TEST_ROOT/config/config.env"
 
 {
@@ -32,13 +34,31 @@ mkdir -p "$TEST_ROOT/config" "$TEST_ROOT/inbox/2 Queued" "$TEST_ROOT/mock-bin"
 } > "$TEST_ROOT/mock-bin/yt-dlp"
 {
   print '#!/bin/zsh'
-  print 'print exists'
+  print '[[ -n "${OSA_LOG:-}" ]] && print -r -- "$*" >> "$OSA_LOG"'
+  print 'if [[ " $* " == *" every user playlist "* ]]; then print exists; fi'
 } > "$TEST_ROOT/mock-bin/osascript"
 {
   print '#!/bin/zsh'
-  print 'exit 0'
+  print 'output="${@: -1}"'
+  print 'mkdir -p "${output:h}"'
+  print ': > "$output"'
 } > "$TEST_ROOT/mock-bin/ffmpeg"
-chmod 755 "$TEST_ROOT/mock-bin/yt-dlp" "$TEST_ROOT/mock-bin/osascript" "$TEST_ROOT/mock-bin/ffmpeg"
+{
+  print '#!/bin/zsh'
+  print 'prefix=""; formats=()'
+  print 'while (( $# )); do'
+  print '  case "$1" in'
+  print '    -of) shift; prefix="$1" ;;'
+  print '    -otxt) formats+=(txt) ;;'
+  print '    -osrt) formats+=(srt) ;;'
+  print '    -ovtt) formats+=(vtt) ;;'
+  print '  esac'
+  print '  shift'
+  print 'done'
+  print '[[ -n "$prefix" ]] || exit 1'
+  print 'for format in "${formats[@]}"; do : > "$prefix.$format"; done'
+} > "$TEST_ROOT/mock-bin/whisper-cli"
+chmod 755 "$TEST_ROOT/mock-bin/yt-dlp" "$TEST_ROOT/mock-bin/osascript" "$TEST_ROOT/mock-bin/ffmpeg" "$TEST_ROOT/mock-bin/whisper-cli"
 
 MUSIC_INBOX_CONFIG="$TEST_ROOT/config/config.env" source "$PROJECT_DIR/lib/music-inbox.zsh"
 source "$PROJECT_DIR/lib/request.zsh"
@@ -47,6 +67,8 @@ source "$PROJECT_DIR/lib/media.zsh"
 source "$PROJECT_DIR/lib/worker.zsh"
 MUSIC_INBOX_CONFIG="$TEST_ROOT/config/config.env" music_inbox_load_config
 PATH="$TEST_ROOT/mock-bin:$PATH"
+mkdir -p "$MUSIC_INBOX_MODEL_DIR"
+: > "$MUSIC_INBOX_WHISPER_MODEL_PATH"
 
 note="$MUSIC_INBOX_QUEUED/Media Test.md"
 {
@@ -63,3 +85,24 @@ rg -q 'Title: A / Video: Title' "$result_note"
 [[ -z "$(find "$MUSIC_INBOX_MEDIA" -type f -name '*.mp3' -print -quit)" ]]
 [[ "$(find "$MUSIC_INBOX_STATE/completed" -type f | wc -l | tr -d ' ')" == 1 ]]
 print 'ok - downloads locally, imports through Music automation, records completion, and cleans the MP3 only after success'
+
+: > "$TEST_ROOT/osascript.log"
+transcript_note="$MUSIC_INBOX_QUEUED/Transcript Only.md"
+{
+  print 'URL: https://youtu.be/transcript-only'
+  print 'import-to-music: no'
+  print 'transcribe: yes'
+  print 'translate: yes'
+  print 'transcript-format: txt,srt'
+} > "$transcript_note"
+OSA_LOG="$TEST_ROOT/osascript.log" music_inbox_with_worker_lock music_inbox_process_queued_note "$transcript_note" music_inbox_handle_media
+
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only.md" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only — transcript.txt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only — transcript.srt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only — translation.txt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only — translation.srt" ]]
+[[ ! -s "$TEST_ROOT/osascript.log" ]]
+rg -q 'Imported to Music: no' "$MUSIC_INBOX_DONE/Transcript Only — result.md"
+[[ -z "$(find "$MUSIC_INBOX_MEDIA" -type f -print -quit)" ]]
+print 'ok - creates transcript-only outputs without calling Music automation and cleans local working audio'

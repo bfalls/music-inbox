@@ -37,10 +37,11 @@ music_inbox_load_config() {
 }
 
 music_inbox_find_whisper() {
-  local tool path
+  # `path` is a special zsh parameter tied to PATH; do not shadow it here.
+  local tool resolved_path
   for tool in whisper-cli whisper; do
-    path="$(music_inbox_find_tool "$tool" 2>/dev/null || true)"
-    [[ -n "$path" ]] && { print -r -- "$path"; return 0; }
+    resolved_path="$(music_inbox_find_tool "$tool" 2>/dev/null || true)"
+    [[ -n "$resolved_path" ]] && { print -r -- "$resolved_path"; return 0; }
   done
   # Older MacPorts releases install whisper.cpp's historical CLI as `main`.
   [[ -x /opt/local/bin/main ]] && { print -r -- /opt/local/bin/main; return 0; }

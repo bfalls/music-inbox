@@ -104,21 +104,73 @@ music_inbox_write_result_note() {
     print -r -- "- Title: $MUSIC_INBOX_VIDEO_TITLE"
     print -r -- "- Video ID: $MUSIC_INBOX_VIDEO_ID"
     print -r -- "- URL: $MUSIC_INBOX_REQUEST_URL"
+    if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]]; then
+      print -- '- Imported to Music: yes'
+    else
+      print -- '- Imported to Music: no (transcript-only request)'
+    fi
     if [[ -n "$MUSIC_INBOX_REQUEST_PLAYLIST" ]]; then
       print -r -- "- Playlist: $MUSIC_INBOX_REQUEST_PLAYLIST"
+    fi
+    local output
+    if (( ${#MUSIC_INBOX_TRANSCRIPT_OUTPUTS} )); then
+      for output in "${MUSIC_INBOX_TRANSCRIPT_OUTPUTS[@]}"; do
+        print -r -- "- Output file: ${output:t}"
+      done
     fi
   } > "$destination"
 }
 
+music_inbox_run_whisper() {
+  local whisper="$1" wav_path="$2" output_prefix="$3" task="$4" format flag
+  local -a formats args
+  formats=( ${(s:,:)${MUSIC_INBOX_REQUEST_FORMATS:-$MUSIC_INBOX_TRANSCRIPT_FORMATS}} )
+  args=(-m "$MUSIC_INBOX_WHISPER_MODEL_PATH" -f "$wav_path" -of "$output_prefix")
+  [[ -n "$MUSIC_INBOX_REQUEST_LANGUAGE" ]] && args+=(-l "$MUSIC_INBOX_REQUEST_LANGUAGE")
+  [[ "$task" == translate ]] && args+=(-tr)
+  for format in "${formats[@]}"; do
+    case "$format" in
+      txt) flag=-otxt ;;
+      srt) flag=-osrt ;;
+      vtt) flag=-ovtt ;;
+    esac
+    args+=("$flag")
+  done
+  "$whisper" "${args[@]}" || return 1
+  for format in "${formats[@]}"; do
+    [[ -r "$output_prefix.$format" ]] || return 1
+    MUSIC_INBOX_TRANSCRIPT_OUTPUTS+=("$output_prefix.$format")
+    MUSIC_INBOX_TRANSCRIPT_LABELS+=("$task")
+  done
+}
+
+music_inbox_publish_transcript_outputs() {
+  local request_note="$1" output label destination
+  integer index
+  mkdir -p "$MUSIC_INBOX_DONE"
+  for (( index = 1; index <= ${#MUSIC_INBOX_TRANSCRIPT_OUTPUTS}; index++ )); do
+    output="$MUSIC_INBOX_TRANSCRIPT_OUTPUTS[$index]"
+    label="$MUSIC_INBOX_TRANSCRIPT_LABELS[$index]"
+    destination="$(music_inbox_safe_note_destination "$MUSIC_INBOX_DONE" "${${request_note:t}%.*} — $label.${output:e}")"
+    mv "$output" "$destination" || {
+      music_inbox_set_process_error "Could not place the $label output in 4 Done. It remains at: $output"
+      return 1
+    }
+    MUSIC_INBOX_TRANSCRIPT_OUTPUTS[$index]="$destination"
+  done
+}
+
 music_inbox_handle_media() {
-  local processing_note="$1" yt_dlp ffmpeg mp3_path work_base
+  local processing_note="$1" yt_dlp ffmpeg whisper mp3_path wav_path work_base
   MUSIC_INBOX_PROCESS_ERROR=''
+  MUSIC_INBOX_TRANSCRIPT_OUTPUTS=()
+  MUSIC_INBOX_TRANSCRIPT_LABELS=()
   yt_dlp="$(music_inbox_find_tool yt-dlp 2>/dev/null || true)"
   [[ -n "$yt_dlp" ]] || { music_inbox_set_process_error 'yt-dlp is not installed. Run: music-inbox doctor'; return 1; }
   ffmpeg="$(music_inbox_find_tool ffmpeg 2>/dev/null || true)"
   [[ -n "$ffmpeg" ]] || { music_inbox_set_process_error 'ffmpeg is not installed. Run: music-inbox doctor'; return 1; }
 
-  if ! music_inbox_playlist_preflight; then
+  if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]] && ! music_inbox_playlist_preflight; then
     [[ -n "$MUSIC_INBOX_PROCESS_ERROR" ]] || music_inbox_set_process_error 'Could not check playlists in Music. Open Music once and allow automation when macOS asks.'
     return 1
   fi
@@ -139,12 +191,31 @@ music_inbox_handle_media() {
     return 1
   fi
   [[ -r "$mp3_path" ]] || { music_inbox_set_process_error "Expected MP3 was not created: $mp3_path"; return 1; }
-  if ! music_inbox_import_into_music "$mp3_path"; then
-    music_inbox_set_process_error 'Music could not import the MP3. The MP3 was retained locally; open Music and allow automation when macOS asks.'
-    return 1
+  if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]]; then
+    if ! music_inbox_import_into_music "$mp3_path"; then
+      music_inbox_set_process_error 'Music could not import the MP3. The MP3 was retained locally; open Music and allow automation when macOS asks.'
+      return 1
+    fi
+  fi
+  if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes || "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]]; then
+    whisper="$(music_inbox_find_whisper 2>/dev/null || true)"
+    [[ -n "$whisper" ]] || { music_inbox_set_process_error 'The local Whisper program is unavailable. Run: music-inbox install-transcription'; return 1; }
+    wav_path="$MUSIC_INBOX_MEDIA/$work_base-whisper.wav"
+    if ! "$ffmpeg" -y -i "$mp3_path" -ar 16000 -ac 1 -c:a pcm_s16le "$wav_path"; then
+      music_inbox_set_process_error 'ffmpeg could not prepare audio for transcription. The MP3 was retained locally.'
+      return 1
+    fi
+    if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes ]] && ! music_inbox_run_whisper "$whisper" "$wav_path" "$MUSIC_INBOX_MEDIA/$work_base-transcript" transcript; then
+      music_inbox_set_process_error 'Whisper could not create the transcript. Temporary media was retained locally.'
+      return 1
+    fi
+    if [[ "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]] && ! music_inbox_run_whisper "$whisper" "$wav_path" "$MUSIC_INBOX_MEDIA/$work_base-translation" translation; then
+      music_inbox_set_process_error 'Whisper could not create the English translation. Temporary media was retained locally.'
+      return 1
+    fi
   fi
   if [[ "${MUSIC_INBOX_CLEANUP_AFTER_IMPORT:l}" == yes ]]; then
-    rm -f -- "$mp3_path"
+    rm -f -- "$mp3_path" "${wav_path:-}"
   fi
   return 0
 }

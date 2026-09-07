@@ -62,7 +62,7 @@ The setup checks for Homebrew's `whisper-cpp` or MacPorts' `whisper` package, as
 
 Choose a multilingual model such as `base` if you want Russian or another non-English language. English-only models have a `.en` suffix, such as `base.en`. `base` is the default because it supports multiple languages without further setup.
 
-Queue-note options will be:
+For example, a Russian transcript request is:
 
 ```md
 URL: https://youtu.be/example
@@ -71,9 +71,9 @@ language: ru
 transcript-format: txt,srt
 ```
 
-`language:` is optional; when omitted, Whisper detects the spoken language. The worker will validate these requests before downloading video or audio. If local transcription, its executable, or its model is unavailable, it will move the request to `5 Failed` and write a companion error note with the exact recovery command. Transcript generation will happen before temporary audio is removed. The resulting transcript is a deliberate user-facing result and will sit with the completed request note, so it may sync with the inbox root.
+`language:` is optional; when omitted, Whisper detects the spoken language. The worker will validate these requests before downloading video or audio. If local transcription, its executable, or its model is unavailable, it will move the request to `5 Failed` and write a companion error note with the exact recovery command. Transcript generation happens before temporary audio is removed. The resulting transcript is a deliberate user-facing result and sits with the completed request note, so it may sync with the inbox root.
 
-Speech translation into English is planned as a later, separate option. Arbitrary target-language translation is not part of this local Whisper backend.
+Whisper can also translate speech into English. It is not a general-purpose, arbitrary-target-language translator; the only translation target is English.
 
 ## Request notes
 
@@ -83,7 +83,59 @@ Only recognized `key: value` lines are processed; the rest of the Markdown note 
 music-inbox validate "/path/to/2 Queued/My request.md"
 ```
 
-Supported request fields so far are `URL` (required), `playlist`, `create-playlist`, `transcribe`, `language`, `transcript-format`, and `translate`. `create-playlist` defaults to `no` and is ignored when `playlist` is absent. `translate: yes` produces an early explanatory failure until that future feature exists.
+### Fields
+
+| Field | Default | What it does |
+| --- | --- | --- |
+| `URL` | Required | The `http` or `https` video URL to process. |
+| `import-to-music` | `yes` | Set to `no` for a transcript-only or translation-only job. Music and playlist handling are then skipped. |
+| `playlist` | None | Optional destination Apple Music playlist. Applies only when importing to Music. |
+| `create-playlist` | `no` | Set to `yes` to create a missing named playlist. Ignored without `playlist`, and ignored for no-import jobs. |
+| `transcribe` | `no` | Set to `yes` to create a transcript in the spoken language. Requires local transcription setup. |
+| `translate` | `no` | Set to `yes` to create an English translation. It can be combined with `transcribe: yes`. Requires a multilingual Whisper model such as `base`. |
+| `language` | Auto-detect | Optional spoken-language hint, such as `en`, `ru`, or `pt-br`. It applies to both transcription and translation. |
+| `transcript-format` | Installed default, normally `txt` | Comma-separated output formats: `txt`, `srt`, and/or `vtt`. Applies to transcripts and translations. |
+
+Values for `import-to-music`, `create-playlist`, `transcribe`, and `translate` must be `yes` or `no`. Field names are case-insensitive; use each recognized field at most once.
+
+### Examples
+
+Import audio into Music, adding it to an existing playlist:
+
+```md
+URL: https://youtu.be/example
+playlist: Coding Focus
+```
+
+Import audio and create a missing playlist:
+
+```md
+URL: https://youtu.be/example
+playlist: Coding Focus
+create-playlist: yes
+```
+
+For a transcript-only or translation-only request, set `import-to-music: no`. Music Inbox then skips Music and all playlist checks, downloads and extracts only the local working audio needed for Whisper, and puts the resulting files beside the completed request in `4 Done`:
+
+```md
+URL: https://youtu.be/example
+import-to-music: no
+transcribe: yes
+language: ru
+transcript-format: txt,srt
+```
+
+For an English translation only:
+
+```md
+URL: https://youtu.be/example
+import-to-music: no
+translate: yes
+language: ru
+transcript-format: txt,srt
+```
+
+Use `translate: yes` to create an English translation instead of, or as well as, the ordinary transcript. Translation requires a multilingual model such as `base`; models ending in `.en` cannot translate. A request with `import-to-music: no` must enable `transcribe` or `translate`, so it always produces a user-facing result. Files are named after the request note, for example `My request — transcript.srt` and `My request — translation.srt`, and are placed in `4 Done`.
 
 Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `— error.md` note. Failed requests are deliberately **not** counted as duplicates.
 
@@ -95,7 +147,7 @@ Run one safe queue pass manually with:
 music-inbox process
 ```
 
-Each request is checked before download. If a playlist is named, Music Inbox verifies it exists before downloading; `create-playlist: yes` permits the later import step to create a missing playlist. Audio is downloaded to the local-only data directory using a filesystem-safe video-title-and-ID name, imported into Music, and only then removed when cleanup is enabled. A successful request moves to `4 Done` with a companion result note and a completed-request record.
+Each request is checked before download. If Music import is enabled and a playlist is named, Music Inbox verifies it exists before downloading; `create-playlist: yes` permits the later import step to create a missing playlist. Audio is downloaded to the local-only data directory using a filesystem-safe video-title-and-ID name, imported into Music when requested, and only then removed when cleanup is enabled. A successful request moves to `4 Done` with a companion result note and a completed-request record. Requested transcript and translation files are kept in `4 Done`.
 
 ## Background service
 
@@ -125,5 +177,3 @@ zsh tests/test-request-and-queue.zsh
 zsh tests/test-media-handler.zsh
 zsh tests/test-launchd.zsh
 ```
-
-Next milestones: queue-worker media processing, Apple Music integration, launchd setup, transcription execution, and mocked end-to-end tests.

@@ -29,6 +29,7 @@ music_inbox_parse_request "$note"
 [[ "$MUSIC_INBOX_REQUEST_URL" == 'https://youtu.be/example' ]]
 [[ "$MUSIC_INBOX_REQUEST_PLAYLIST" == 'Coding Focus' ]]
 [[ "$MUSIC_INBOX_REQUEST_CREATE_PLAYLIST" == no ]]
+[[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]]
 print 'ok - parses known fields and ignores ordinary Markdown'
 
 obsidian_note="$MUSIC_INBOX_QUEUED/Obsidian.md"
@@ -49,6 +50,28 @@ no_playlist="$MUSIC_INBOX_QUEUED/No Playlist.md"
 music_inbox_parse_request "$no_playlist"
 [[ "$MUSIC_INBOX_REQUEST_CREATE_PLAYLIST" == no ]]
 print 'ok - ignores create-playlist without a playlist'
+
+transcript_only="$MUSIC_INBOX_QUEUED/Transcript Only.md"
+{
+  print 'URL: https://youtu.be/transcript-only'
+  print 'import-to-music: no'
+  print 'transcribe: yes'
+} > "$transcript_only"
+music_inbox_parse_request "$transcript_only"
+[[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == no && -z "$MUSIC_INBOX_REQUEST_PLAYLIST" ]]
+print 'ok - accepts transcript-only requests and skips playlist settings'
+
+empty_transcript_only="$MUSIC_INBOX_QUEUED/Empty Transcript Only.md"
+{
+  print 'URL: https://youtu.be/empty-transcript-only'
+  print 'import-to-music: no'
+} > "$empty_transcript_only"
+if music_inbox_parse_request "$empty_transcript_only"; then
+  print -u2 'expected a no-output request to fail'
+  exit 1
+fi
+[[ "$MUSIC_INBOX_REQUEST_ERROR" == *'transcribe: yes'* ]]
+print 'ok - rejects transcript-only requests with no requested output'
 
 bad_note="$MUSIC_INBOX_QUEUED/Bad.md"
 print 'playlist: Missing URL' > "$bad_note"

@@ -20,8 +20,14 @@ music_inbox_process_queued_note() {
     music_inbox_fail_note "$processing_note" "$duplicate_message" >/dev/null
     return 1
   fi
+  MUSIC_INBOX_TRANSCRIPT_OUTPUTS=()
+  MUSIC_INBOX_TRANSCRIPT_LABELS=()
   if ! "$handler" "$processing_note"; then
     music_inbox_fail_note "$processing_note" "${MUSIC_INBOX_PROCESS_ERROR:-Media processing failed.}" >/dev/null
+    return 1
+  fi
+  if ! music_inbox_publish_transcript_outputs "$processing_note"; then
+    music_inbox_fail_note "$processing_note" "${MUSIC_INBOX_PROCESS_ERROR:-Could not publish transcript output.}" >/dev/null
     return 1
   fi
   music_inbox_mark_request_completed

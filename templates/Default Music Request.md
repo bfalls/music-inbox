@@ -1,6 +1,6 @@
 # Music request
 
-<!-- music-inbox-template-version: 1 -->
+<!-- music-inbox-template-version: 2 -->
 
 <!--
 Duplicate this note, fill in the URL, then move the copy to `2 Queued`.
@@ -19,6 +19,10 @@ URL:
 to create it. This setting is ignored if playlist is omitted. -->
 <!-- create-playlist: no -->
 
+<!-- Set to no to create only transcript or translation files. Music import and
+playlist settings are skipped. At least one of transcribe or translate must be yes. -->
+<!-- import-to-music: no -->
+
 <!-- Optional local transcription. It must be enabled with
 `music-inbox install-transcription` before this request is queued. -->
 <!-- transcribe: yes -->
@@ -30,5 +34,6 @@ Use a multilingual model for non-English languages, e.g. ru for Russian. -->
 <!-- Optional comma-separated output formats: txt, srt, vtt. -->
 <!-- transcript-format: txt,srt -->
 
-<!-- Translation is planned but is not available yet. Do not enable it. -->
+<!-- Optional English translation. It uses the same language hint and needs a
+multilingual Whisper model (for example, base rather than base.en). -->
 <!-- translate: no -->
