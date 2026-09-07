@@ -21,6 +21,7 @@ case "${1:-status}" in
     ;;
   doctor)
     print "Music Inbox dependency check"
+    print "Architecture: $(uname -m)"
     for tool in yt-dlp ffmpeg ffprobe deno; do
       if path="$(music_inbox_find_tool "$tool")"; then
         print "✓ $tool: $path"
@@ -28,12 +29,8 @@ case "${1:-status}" in
         print "✗ $tool: not found"
       fi
     done
-    if command -v brew >/dev/null 2>&1; then
-      print "Package manager: Homebrew ($(command -v brew))"
-    fi
-    if command -v port >/dev/null 2>&1; then
-      print "Package manager: MacPorts ($(command -v port))"
-    fi
+    command -v brew >/dev/null 2>&1 && print "Package manager: Homebrew ($(command -v brew))"
+    command -v port >/dev/null 2>&1 && print "Package manager: MacPorts ($(command -v port))"
     ;;
   paths)
     print "Drafts:     $MUSIC_INBOX_DRAFTS"

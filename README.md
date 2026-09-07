@@ -25,13 +25,13 @@ cd music-inbox
 ./bin/music-inbox doctor
 ```
 
-The installer asks for the inbox root, browser-cookie preference, and whether to remove the temporary MP3 after a confirmed Music import. It stores the answers in `~/.config/music-inbox/config.env` with owner-only permissions.
+The installer asks for the inbox root, browser-cookie preference, and whether to remove the temporary MP3 after a confirmed Music import. It stores the answers in `~/.config/music-inbox/config.env` with owner-only permissions, installs `music-inbox` to `~/.local/bin`, and keeps its installed program files in `~/.local/share/music-inbox`.
 
 ## Dependencies
 
-The worker will require `yt-dlp`, `ffmpeg`, `ffprobe`, and a JavaScript runtime such as Deno for YouTube challenge handling. `music-inbox doctor` detects common Homebrew and MacPorts locations.
+The worker requires `yt-dlp`, `ffmpeg`, `ffprobe`, and a JavaScript runtime such as Deno for YouTube challenge handling. `music-inbox doctor` detects common Homebrew and MacPorts locations. The installer reports missing tools and asks before installing them.
 
-Use one package manager consistently. The upcoming installer will prefer the package manager already installed on the Mac, and will ask before installing any dependencies.
+Use one package manager consistently. The installer uses a package manager already present on the Mac; when both Homebrew and MacPorts are available, it asks which one to use. It never installs a package manager itself.
 
 ## Development
 
