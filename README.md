@@ -33,7 +33,7 @@ The installer places the `music-inbox` command in `/usr/local/bin` and registers
 
 The default local-only folder is `~/Library/Application Support/music-inbox`. Do not place it in iCloud Drive, Dropbox, OneDrive, an Obsidian vault, or another sync service. It holds downloaded media, partial downloads, language models, logs, locks, and duplicate-processing state. The installer warns when the chosen path looks synced.
 
-Setup creates `1 Drafts/Default Music Request.md` without overwriting an existing copy. Duplicate that note, replace its example URL, uncomment the optional fields you want, and move the duplicate to `2 Queued`.
+Setup creates `1 Drafts/Default Music Request.md`. On an upgrade, an unchanged template updates automatically. A customized or unknown template is preserved and the new shipped version is added as `Default Music Request v<N>.md`. Duplicate the template you prefer, replace its example URL, uncomment the optional fields you want, and move the duplicate to `2 Queued`.
 
 ## Dependencies
 

@@ -1,5 +1,7 @@
 # Music request
 
+<!-- music-inbox-template-version: 2 -->
+
 <!--
 Duplicate this note, fill in the URL, then move the copy to `2 Queued`.
 
