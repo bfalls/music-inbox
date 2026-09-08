@@ -56,10 +56,12 @@ music_inbox_ui_key_value() {
   printf '%s%-14s%s %s\n' "$MUSIC_INBOX_UI_DIM" "$label" "$MUSIC_INBOX_UI_RESET" "$value"
 }
 
-# Run a non-interactive command with a minimal spinner when attached to a
-# terminal. Output is shown on failure; redirected invocations remain plain.
+# Run a command with a minimal spinner when attached to a terminal. The
+# command stays in this shell, so callers may safely use shell functions that
+# set result variables. Output is shown on failure; redirected invocations
+# remain plain.
 music_inbox_ui_run() {
-  local label="$1" temporary pid rc=0 frame=1
+  local label="$1" temporary spinner_pid rc=0 frame=1
   local -a frames
   shift
   [[ "${1:-}" == -- ]] && shift
@@ -67,8 +69,7 @@ music_inbox_ui_run() {
 
   if [[ "$MUSIC_INBOX_UI_TTY" != yes ]]; then
     music_inbox_ui_info "$label"
-    "$@"
-    return
+    if "$@"; then return 0; else return $?; fi
   fi
 
   temporary="$(mktemp "${TMPDIR:-/tmp}/music-inbox.XXXXXX")" || {
@@ -76,18 +77,24 @@ music_inbox_ui_run() {
     "$@"
     return
   }
-  "$@" >"$temporary" 2>&1 &
-  pid=$!
-  while kill -0 "$pid" 2>/dev/null; do
-    printf '\r\033[2K%s%s%s %s' "$MUSIC_INBOX_UI_BLUE" "${frames[$frame]}" "$MUSIC_INBOX_UI_RESET" "$label"
-    (( frame = frame % ${#frames} + 1 ))
-    sleep 0.12
-  done
-  if wait "$pid"; then
+  (
+    trap 'exit 0' TERM INT
+    while :; do
+      printf '\r\033[2K%s%s%s %s' "$MUSIC_INBOX_UI_BLUE" "${frames[$frame]}" "$MUSIC_INBOX_UI_RESET" "$label"
+      (( frame = frame % ${#frames} + 1 ))
+      sleep 0.12
+    done
+  ) &
+  spinner_pid=$!
+  if "$@" >"$temporary" 2>&1; then
+    kill "$spinner_pid" 2>/dev/null || true
+    wait "$spinner_pid" 2>/dev/null || true
     printf '\r\033[2K'
     music_inbox_ui_success "$label"
   else
     rc=$?
+    kill "$spinner_pid" 2>/dev/null || true
+    wait "$spinner_pid" 2>/dev/null || true
     printf '\r\033[2K'
     music_inbox_ui_error "$label"
     [[ -s "$temporary" ]] && cat "$temporary" >&2

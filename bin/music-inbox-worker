@@ -7,6 +7,7 @@ source "$SCRIPT_DIR/../lib/request.zsh"
 source "$SCRIPT_DIR/../lib/queue.zsh"
 source "$SCRIPT_DIR/../lib/media.zsh"
 source "$SCRIPT_DIR/../lib/worker.zsh"
+source "$SCRIPT_DIR/../lib/ui.zsh"
 
 music_inbox_load_config
 

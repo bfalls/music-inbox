@@ -4,9 +4,8 @@
 # handler receives a claimed note only after parsing, capability checks, and
 # completed-request duplicate protection have all passed.
 
-music_inbox_process_queued_note() {
-  local queued_note="$1" handler="$2" processing_note duplicate_message
-  processing_note="$(music_inbox_claim_note "$queued_note")" || return 1
+music_inbox_process_claimed_note() {
+  local processing_note="$1" handler="$2" duplicate_message done_note
 	music_inbox_timing_start
 	music_inbox_timing_begin_stage 'Validate request'
 
@@ -38,9 +37,17 @@ music_inbox_process_queued_note() {
     music_inbox_timing_finish_stage
   fi
   music_inbox_mark_request_completed
-  local done_note
   done_note="$(music_inbox_move_note "$processing_note" "$MUSIC_INBOX_DONE")" || return 1
-  music_inbox_write_result_note "$done_note"
+  MUSIC_INBOX_DONE_NOTE="$done_note"
+  music_inbox_write_result_note "$done_note" >/dev/null
+  MUSIC_INBOX_COMPLETED_FILES=("$MUSIC_INBOX_DONE_NOTE" "$MUSIC_INBOX_RESULT_NOTE" "${MUSIC_INBOX_TRANSCRIPT_OUTPUTS[@]}")
+  return 0
+}
+
+music_inbox_process_queued_note() {
+  local queued_note="$1" handler="$2" processing_note
+  processing_note="$(music_inbox_claim_note "$queued_note")" || return 1
+  music_inbox_process_claimed_note "$processing_note" "$handler"
 }
 
 music_inbox_with_worker_lock() {

@@ -99,7 +99,7 @@ test_handler() {
 }
 music_inbox_with_worker_lock music_inbox_process_queued_note "$ready_note" test_handler
 [[ -f "$MUSIC_INBOX_DONE/Ready.md" ]]
-[[ -f "$MUSIC_INBOX_DONE/Ready — result.md" ]]
+[[ -f "$MUSIC_INBOX_DONE/Ready - result.md" ]]
 [[ ! -d "$MUSIC_INBOX_WORKER_LOCK" ]]
 print 'ok - claims a valid request under a single-worker lock and finalizes it'
 
@@ -113,14 +113,14 @@ if music_inbox_with_worker_lock music_inbox_process_queued_note "$transcript_not
   exit 1
 fi
 [[ -f "$MUSIC_INBOX_FAILED/Needs Whisper.md" ]]
-rg -q 'install-transcription' "$MUSIC_INBOX_FAILED/Needs Whisper — error.md"
+rg -q 'install-transcription' "$MUSIC_INBOX_FAILED/Needs Whisper - error.md"
 print 'ok - fails unavailable capabilities before a handler can download media'
 
 claimed="$(music_inbox_claim_note "$note")"
 [[ -f "$claimed" && ! -e "$note" ]]
 failed="$(music_inbox_fail_note "$claimed" 'Example failure for testing.')"
 [[ -f "$failed" ]]
-error_note="$MUSIC_INBOX_FAILED/Podcast — error.md"
+error_note="$MUSIC_INBOX_FAILED/Podcast - error.md"
 [[ -f "$error_note" ]]
 rg -q 'Example failure for testing.' "$error_note"
 print 'ok - claims notes safely and writes a companion failure note'

@@ -47,6 +47,7 @@ mkdir -p "$TEST_ROOT/config" "$TEST_ROOT/inbox/2 Queued" "$TEST_ROOT/mock-bin"
 } > "$TEST_ROOT/mock-bin/ffmpeg"
 {
   print '#!/bin/zsh'
+  print '[[ "${1:-}" == --help ]] && { print "usage: whisper-cli -m FNAME [options]"; exit 0; }'
   print 'prefix=""; formats=()'
   print 'while (( $# )); do'
   print '  case "$1" in'
@@ -81,7 +82,7 @@ note="$MUSIC_INBOX_QUEUED/Media Test.md"
 music_inbox_with_worker_lock music_inbox_process_queued_note "$note" music_inbox_handle_media
 
 [[ -f "$MUSIC_INBOX_DONE/Media Test.md" ]]
-result_note="$MUSIC_INBOX_DONE/Media Test — result.md"
+result_note="$MUSIC_INBOX_DONE/Media Test - result.md"
 [[ -f "$result_note" ]]
 rg -q 'Title: A / Video: Title' "$result_note"
 rg -q '^\- Total time: ' "$result_note"
@@ -99,9 +100,9 @@ if OSA_FAIL_IMPORT=yes music_inbox_with_worker_lock music_inbox_process_queued_n
   exit 1
 fi
 [[ -f "$MUSIC_INBOX_FAILED/Failed Import.md" ]]
-rg -q 'import copy was retained at:' "$MUSIC_INBOX_FAILED/Failed Import — error.md"
-rg -q '^\- Total time: ' "$MUSIC_INBOX_FAILED/Failed Import — error.md"
-rg -q 'Import into Apple Music: .*\(interrupted\)' "$MUSIC_INBOX_FAILED/Failed Import — error.md"
+rg -q 'import copy was retained at:' "$MUSIC_INBOX_FAILED/Failed Import - error.md"
+rg -q '^\- Total time: ' "$MUSIC_INBOX_FAILED/Failed Import - error.md"
+rg -q 'Import into Apple Music: .*\(interrupted\)' "$MUSIC_INBOX_FAILED/Failed Import - error.md"
 retained_staging_mp3="$(find "$MUSIC_INBOX_MUSIC_STAGING" -type f -name '*.mp3' -print -quit)"
 retained_local_mp3="$(find "$MUSIC_INBOX_MEDIA" -type f -name '*.mp3' -print -quit)"
 [[ -n "$retained_staging_mp3" && -z "$retained_local_mp3" ]]
@@ -120,11 +121,16 @@ transcript_note="$MUSIC_INBOX_QUEUED/Transcript Only.md"
 OSA_LOG="$TEST_ROOT/osascript.log" music_inbox_with_worker_lock music_inbox_process_queued_note "$transcript_note" music_inbox_handle_media
 
 [[ -f "$MUSIC_INBOX_DONE/Transcript Only.md" ]]
-[[ -f "$MUSIC_INBOX_DONE/Transcript Only — transcript.txt" ]]
-[[ -f "$MUSIC_INBOX_DONE/Transcript Only — transcript.srt" ]]
-[[ -f "$MUSIC_INBOX_DONE/Transcript Only — translation.txt" ]]
-[[ -f "$MUSIC_INBOX_DONE/Transcript Only — translation.srt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only - transcript.txt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only - transcript.srt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only - translation.txt" ]]
+[[ -f "$MUSIC_INBOX_DONE/Transcript Only - translation.srt" ]]
 [[ ! -s "$TEST_ROOT/osascript.log" ]]
-rg -q 'Imported to Music: no' "$MUSIC_INBOX_DONE/Transcript Only — result.md"
+transcript_result="$MUSIC_INBOX_DONE/Transcript Only - result.md"
+rg -q 'Imported to Music: no' "$transcript_result"
+rg -Fq '[Transcript Only - transcript.txt](<Transcript Only - transcript.txt>)' "$transcript_result"
+rg -Fq "Path: \`$MUSIC_INBOX_DONE/Transcript Only - transcript.txt\`" "$transcript_result"
+[[ "$MUSIC_INBOX_RESULT_NOTE" == "$transcript_result" ]]
+[[ " ${(j: :)MUSIC_INBOX_COMPLETED_FILES} " == *" $MUSIC_INBOX_DONE/Transcript Only - transcript.txt "* ]]
 [[ -z "$(find "$MUSIC_INBOX_MEDIA" -type f -print -quit)" ]]
 print 'ok - creates transcript-only outputs without calling Music automation and cleans local working audio'

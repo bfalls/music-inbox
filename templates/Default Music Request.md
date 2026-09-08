@@ -28,7 +28,7 @@ playlist settings are skipped. At least one of transcribe or translate must be y
 <!-- transcribe: yes -->
 
 <!-- Optional spoken-language hint. Omit it to let Whisper detect the language.
-Use a multilingual model for non-English languages, e.g. ru for Russian. -->
+Use a multilingual model for languages other than English. -->
 <!-- language: en -->
 
 <!-- Optional comma-separated output formats: txt, srt, vtt. -->

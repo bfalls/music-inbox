@@ -5,12 +5,14 @@ SCRIPT_DIR="${0:A:h}"
 source "$SCRIPT_DIR/../lib/music-inbox.zsh"
 source "$SCRIPT_DIR/../lib/request.zsh"
 source "$SCRIPT_DIR/../lib/queue.zsh"
+source "$SCRIPT_DIR/../lib/media.zsh"
+source "$SCRIPT_DIR/../lib/worker.zsh"
 source "$SCRIPT_DIR/../lib/launchd.zsh"
 source "$SCRIPT_DIR/../lib/ui.zsh"
 source "$SCRIPT_DIR/../lib/add.zsh"
 
 usage() {
-  print "Usage: music-inbox <add|status|doctor|paths|log|validate|process|install-service|start|stop|restart|uninstall-service|install-transcription>"
+  print "Usage: music-inbox <add|status|doctor|paths|log|validate|process|install-service|start|stop|restart|uninstall-service|install-transcription [--model <name>]>"
 }
 
 case "${1:-}" in
@@ -45,8 +47,8 @@ case "${1:-status}" in
     music_inbox_ui_heading 'Music Inbox dependency check'
     music_inbox_acceleration_summary
     for tool in yt-dlp ffmpeg ffprobe deno; do
-      if path="$(music_inbox_find_tool "$tool")"; then
-        music_inbox_ui_success "$tool: $path"
+      if tool_path="$(music_inbox_find_tool "$tool")"; then
+        music_inbox_ui_success "$tool: $tool_path"
       else
         music_inbox_ui_error "$tool: not found"
       fi
@@ -54,15 +56,22 @@ case "${1:-status}" in
     command -v brew >/dev/null 2>&1 && music_inbox_ui_info "Package manager: Homebrew ($(command -v brew))"
     command -v port >/dev/null 2>&1 && music_inbox_ui_info "Package manager: MacPorts ($(command -v port))"
     if whisper_path="$(music_inbox_find_whisper 2>/dev/null)"; then
-      music_inbox_ui_success "whisper: $whisper_path"
+      music_inbox_ui_success "whisper.cpp: $whisper_path"
+    elif [[ "${MUSIC_INBOX_TRANSCRIPTION_ENABLED:l}" == yes ]]; then
+      music_inbox_ui_error 'whisper.cpp: required for enabled transcription; run music-inbox install-transcription'
     else
-      music_inbox_ui_info 'whisper: optional; run music-inbox install-transcription'
+      music_inbox_ui_info 'whisper.cpp: not installed (optional; run music-inbox install-transcription)'
     fi
     music_inbox_ui_key_value 'Transcription' "$MUSIC_INBOX_TRANSCRIPTION_ENABLED"
     if model_size="$(music_inbox_human_file_size "$MUSIC_INBOX_WHISPER_MODEL_PATH")"; then
       music_inbox_ui_key_value 'Model' "$MUSIC_INBOX_WHISPER_MODEL_PATH ($model_size)"
     else
       music_inbox_ui_key_value 'Model' "$MUSIC_INBOX_WHISPER_MODEL_PATH (not downloaded)"
+    fi
+    if transcription_problem="$(music_inbox_transcription_problem 2>/dev/null)"; then
+      music_inbox_ui_success 'Transcription: ready'
+    else
+      music_inbox_ui_error "Transcription: not ready - $transcription_problem"
     fi
     ;;
   paths)
@@ -112,7 +121,7 @@ case "${1:-status}" in
     music_inbox_uninstall_service
     ;;
   install-transcription)
-    exec "$SCRIPT_DIR/../install.sh" --transcription-only
+    exec "$SCRIPT_DIR/../install.sh" --transcription-only "${@:2}"
     ;;
   *)
     print -u2 "Unknown command: $1"

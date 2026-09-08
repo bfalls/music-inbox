@@ -20,7 +20,7 @@ osacompile -o "$TEST_ROOT/Music Inbox Request.app" "$PROJECT_DIR/lib/add.applesc
 [[ -x "$TEST_ROOT/Music Inbox Request.app/Contents/MacOS/applet" ]]
 print 'ok - builds the native request applet'
 
-[[ "$(music_inbox_add_language_choices)" == *'Russian — ru'* ]]
+[[ "$(music_inbox_add_language_choices)" == *'Russian - ru'* ]]
 print 'ok - offers a native pop-up list of Whisper language choices'
 
 # The native dialog uses a non-whitespace separator so its empty Library-only

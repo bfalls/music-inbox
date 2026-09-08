@@ -130,7 +130,7 @@ music_inbox_mark_request_completed() {
 
 music_inbox_write_error_note() {
   local failed_note="$1" message="$2" destination
-  destination="$(music_inbox_safe_note_destination "$MUSIC_INBOX_FAILED" "${${failed_note:t}%.*} — error.md")"
+  destination="$(music_inbox_safe_note_destination "$MUSIC_INBOX_FAILED" "${${failed_note:t}%.*} - error.md")"
   {
     print '# Music Inbox request could not run'
     print
@@ -140,6 +140,7 @@ music_inbox_write_error_note() {
 	  print
     print 'Fix the issue, then move the original request note back to `2 Queued`.'
   } > "$destination"
+  MUSIC_INBOX_ERROR_NOTE="$destination"
   print -r -- "$destination"
 }
 
@@ -147,5 +148,6 @@ music_inbox_fail_note() {
   local processing_note="$1" message="$2" failed_note
   failed_note="$(music_inbox_move_note "$processing_note" "$MUSIC_INBOX_FAILED")" || return 1
   music_inbox_write_error_note "$failed_note" "$message" >/dev/null
+  MUSIC_INBOX_FAILED_NOTE="$failed_note"
   print -r -- "$failed_note"
 }

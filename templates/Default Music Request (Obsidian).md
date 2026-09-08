@@ -19,7 +19,7 @@ URL:
 %% Optional local transcription; first run `music-inbox install-transcription`. %%
 %% transcribe: yes %%
 
-%% Optional spoken-language hint; omit to auto-detect. Use ru for Russian, for example. %%
+%% Optional spoken-language hint; omit to auto-detect. %%
 %% language: en %%
 
 %% Optional comma-separated output formats: txt, srt, vtt. %%

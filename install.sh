@@ -12,7 +12,29 @@ BIN_DIR="/usr/local/bin"
 DEFAULT_ROOT="$HOME/Music Inbox"
 DEFAULT_LOCAL_ROOT="$HOME/Library/Application Support/music-inbox"
 TRANSCRIPTION_ONLY=false
-[[ "${1:-}" == --transcription-only ]] && TRANSCRIPTION_ONLY=true
+MODEL_OVERRIDE=''
+while (( $# )); do
+  case "$1" in
+    --transcription-only)
+      TRANSCRIPTION_ONLY=true
+      ;;
+    --model)
+      [[ -n "${2:-}" ]] || { print -u2 'Usage: install.sh [--transcription-only] [--model <name>]'; exit 2; }
+      MODEL_OVERRIDE="$2"
+      shift
+      ;;
+    -h|--help)
+      print 'Usage: install.sh [--transcription-only] [--model <name>]'
+      exit 0
+      ;;
+    *)
+      print -u2 "Unknown option: $1"
+      print -u2 'Usage: install.sh [--transcription-only] [--model <name>]'
+      exit 2
+      ;;
+  esac
+  shift
+done
 
 source "$PROJECT_DIR/lib/music-inbox.zsh"
 source "$PROJECT_DIR/lib/templates.zsh"
@@ -62,9 +84,9 @@ if [[ -r "$CONFIG_FILE" ]]; then
 fi
 
 if [[ "$TRANSCRIPTION_ONLY" == true ]]; then
-  music_inbox_ui_heading 'Music Inbox — transcription setup'
+  music_inbox_ui_heading 'Music Inbox - transcription setup'
 else
-  music_inbox_ui_heading 'Music Inbox — setup'
+  music_inbox_ui_heading 'Music Inbox - setup'
 fi
 music_inbox_acceleration_summary
 music_inbox_ui_info 'Creates a folder-based inbox and a private configuration file.'
@@ -87,14 +109,27 @@ else
   [[ "$inbox_root" == *obsidian* ]] && suggested_template_style=obsidian
   template_style="$(prompt_with_default 'Request template style (obsidian or standard)' "$suggested_template_style")"
 fi
-transcription="$(prompt_with_default 'Enable local transcription? (yes/no)' "$existing_transcription")"
+if [[ -n "$MODEL_OVERRIDE" || ( "$TRANSCRIPTION_ONLY" == true && "${existing_transcription:l}" == yes ) ]]; then
+  # An explicit transcription command should not make an already configured
+  # installation ask the same setup question again.
+  transcription=yes
+else
+  transcription="$(prompt_with_default 'Enable local transcription? (yes/no)' "$existing_transcription")"
+fi
 whisper_model="$existing_model"
 formats="$existing_formats"
-if [[ "${transcription:l}" == yes ]]; then
-  print "Use a multilingual model (for example: tiny, base, small) for Russian and other non-English languages."
-  print "English-only models end in .en (for example: base.en)."
-  whisper_model="$(prompt_with_default 'Whisper model' "$existing_model")"
-  formats="$(prompt_with_default 'Transcript formats (comma-separated: txt,srt,vtt)' "$existing_formats")"
+if [[ -n "$MODEL_OVERRIDE" ]]; then
+  whisper_model="$MODEL_OVERRIDE"
+  music_inbox_ui_info "Using requested transcription model: $whisper_model"
+elif [[ "${transcription:l}" == yes ]]; then
+  existing_model_path="$local_root/state/models/ggml-${existing_model}.bin"
+  if [[ "${existing_transcription:l}" == yes && -r "$existing_model_path" ]]; then
+    music_inbox_ui_info "Using existing transcription model: $existing_model"
+  else
+    print "Use a multilingual model (for example: tiny, base, small) for languages other than English."
+    print "English-only models end in .en (for example: base.en)."
+    whisper_model="$(prompt_with_default 'Whisper model' "$existing_model")"
+  fi
 fi
 
 case "${cleanup:l}" in
@@ -125,10 +160,12 @@ fi
 mkdir -p "$CONFIG_DIR" "$inbox_root/1 Drafts" "$inbox_root/2 Queued" \
   "$inbox_root/3 Processing" "$inbox_root/4 Done" "$inbox_root/5 Failed" \
   "$local_root/media" "$local_root/state/models" "$APP_DIR"
-template_source="$PROJECT_DIR/templates/Default Music Request.md"
-[[ "$template_style" == obsidian ]] && template_source="$PROJECT_DIR/templates/Default Music Request (Obsidian).md"
-music_inbox_install_default_request_template "$template_source" \
-  "$inbox_root/1 Drafts" "$local_root/state"
+if [[ "$TRANSCRIPTION_ONLY" == false ]]; then
+  template_source="$PROJECT_DIR/templates/Default Music Request.md"
+  [[ "$template_style" == obsidian ]] && template_source="$PROJECT_DIR/templates/Default Music Request (Obsidian).md"
+  music_inbox_install_default_request_template "$template_source" \
+    "$inbox_root/1 Drafts" "$local_root/state"
+fi
 umask 077
 {
   print -r -- "MUSIC_INBOX_ROOT=${(q)inbox_root}"
@@ -143,55 +180,62 @@ umask 077
 } > "$CONFIG_FILE"
 chmod 600 "$CONFIG_FILE"
 
-mkdir -p "$APP_DIR/bin" "$APP_DIR/lib"
-cp -R "$PROJECT_DIR/bin/." "$APP_DIR/bin/"
-cp -R "$PROJECT_DIR/lib/." "$APP_DIR/lib/"
-chmod 755 "$APP_DIR/bin/music-inbox" "$APP_DIR/bin/music-inbox-worker"
-applet_path="$APP_DIR/Music Inbox Request.app"
-rm -rf -- "$applet_path"
-if ! osacompile -o "$applet_path" "$APP_DIR/lib/add.applescript"; then
-  print -u2 'Could not build the native Music Inbox request window.'
-  exit 1
-fi
+if [[ "$TRANSCRIPTION_ONLY" == false ]]; then
+  # /usr/local/bin is the macOS convention for a user-installed CLI. Most Macs
+  # already include it in PATH; /etc/paths.d ensures future standard login shells
+  # do as well. Administrator approval is only needed for those shared locations.
+  if [[ -e "$BIN_DIR/music-inbox" && ! -L "$BIN_DIR/music-inbox" ]]; then
+    print -u2 "Refusing to replace existing non-link command: $BIN_DIR/music-inbox"
+    print -u2 "Move it aside yourself, then run this installer again."
+    exit 1
+  fi
+  needs_admin=no
+  [[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]] && needs_admin=yes
+  paths_entry=''
+  [[ -r /etc/paths.d/music-inbox ]] && paths_entry="$(< /etc/paths.d/music-inbox)"
+  if [[ "$paths_entry" != /usr/local/bin ]]; then
+    needs_admin=yes
+  fi
+  if [[ "$needs_admin" == yes ]]; then
+    print
+    music_inbox_ui_info 'Administrator permission is required next.'
+    print "macOS will ask for your password so Music Inbox can install its command in /usr/local/bin"
+    print "and register that standard command location for future Terminal sessions."
+    print "The Music Inbox worker, its notes, media, and models will still run only as your user."
+    sudo -v
+  fi
 
-# /usr/local/bin is the macOS convention for a user-installed CLI. Most Macs
-# already include it in PATH; /etc/paths.d ensures future standard login shells
-# do as well. Administrator approval is only needed for those shared locations.
-if [[ -e "$BIN_DIR/music-inbox" && ! -L "$BIN_DIR/music-inbox" ]]; then
-  print -u2 "Refusing to replace existing non-link command: $BIN_DIR/music-inbox"
-  print -u2 "Move it aside yourself, then run this installer again."
-  exit 1
-fi
-needs_admin=no
-[[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]] && needs_admin=yes
-paths_entry=''
-[[ -r /etc/paths.d/music-inbox ]] && paths_entry="$(< /etc/paths.d/music-inbox)"
-if [[ "$paths_entry" != /usr/local/bin ]]; then
-  needs_admin=yes
-fi
-if [[ "$needs_admin" == yes ]]; then
-  print
-  music_inbox_ui_info 'Administrator permission is required next.'
-  print "macOS will ask for your password so Music Inbox can install its command in /usr/local/bin"
-  print "and register that standard command location for future Terminal sessions."
-  print "The Music Inbox worker, its notes, media, and models will still run only as your user."
-  sudo -v
-fi
-if [[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]]; then
-  sudo /bin/mkdir -p "$BIN_DIR"
-fi
-if [[ -w "$BIN_DIR" ]]; then
-  ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
-else
-  sudo /bin/ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
-fi
-if [[ ! -d /etc/paths.d || ! -w /etc/paths.d ]]; then
-  sudo /bin/mkdir -p /etc/paths.d
-fi
-if [[ -w /etc/paths.d ]]; then
-  print -r -- /usr/local/bin > /etc/paths.d/music-inbox
-else
-  print -r -- /usr/local/bin | sudo /usr/bin/tee /etc/paths.d/music-inbox >/dev/null
+  music_inbox_ui_heading 'Updating Music Inbox'
+  music_inbox_ui_info 'Refreshing installed files and rebuilding the native request window. This may take a moment.'
+  mkdir -p "$APP_DIR/bin" "$APP_DIR/lib"
+  music_inbox_ui_run 'Refreshing Music Inbox commands' -- cp -R "$PROJECT_DIR/bin/." "$APP_DIR/bin/"
+  music_inbox_ui_run 'Refreshing Music Inbox support files' -- cp -R "$PROJECT_DIR/lib/." "$APP_DIR/lib/"
+  music_inbox_ui_run 'Refreshing the Music Inbox installer' -- cp "$PROJECT_DIR/install.sh" "$APP_DIR/install.sh"
+  chmod 755 "$APP_DIR/install.sh" "$APP_DIR/bin/music-inbox" "$APP_DIR/bin/music-inbox-worker"
+  applet_path="$APP_DIR/Music Inbox Request.app"
+  rm -rf -- "$applet_path"
+  if ! music_inbox_ui_run 'Building the native Music Inbox request window' -- osacompile -o "$applet_path" "$APP_DIR/lib/add.applescript"; then
+    print -u2 'Could not build the native Music Inbox request window.'
+    exit 1
+  fi
+
+  music_inbox_ui_info 'Registering the Music Inbox command for future Terminal sessions.'
+  if [[ ! -d "$BIN_DIR" || ! -w "$BIN_DIR" ]]; then
+    sudo /bin/mkdir -p "$BIN_DIR"
+  fi
+  if [[ -w "$BIN_DIR" ]]; then
+    ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
+  else
+    sudo /bin/ln -sfn "$APP_DIR/bin/music-inbox" "$BIN_DIR/music-inbox"
+  fi
+  if [[ ! -d /etc/paths.d || ! -w /etc/paths.d ]]; then
+    sudo /bin/mkdir -p /etc/paths.d
+  fi
+  if [[ -w /etc/paths.d ]]; then
+    print -r -- /usr/local/bin > /etc/paths.d/music-inbox
+  else
+    print -r -- /usr/local/bin | sudo /usr/bin/tee /etc/paths.d/music-inbox >/dev/null
+  fi
 fi
 
 missing_tools=()
@@ -200,8 +244,12 @@ base_tools=()
 for tool in "${base_tools[@]}"; do
   music_inbox_find_tool "$tool" >/dev/null 2>&1 || missing_tools+=("$tool")
 done
-if [[ "${transcription:l}" == yes ]] && ! music_inbox_find_whisper >/dev/null 2>&1; then
-  missing_tools+=(whisper)
+if [[ "${transcription:l}" == yes ]]; then
+  if existing_whisper="$(music_inbox_find_whisper 2>/dev/null)"; then
+    music_inbox_ui_success "Using existing whisper.cpp: $existing_whisper"
+  else
+    missing_tools+=(whisper)
+  fi
 fi
 
 if (( ${#missing_tools} )); then
@@ -250,7 +298,7 @@ fi
 if [[ "${transcription:l}" == yes ]]; then
   mkdir -p "$local_root/state/models"
   model_path="$local_root/state/models/ggml-${whisper_model}.bin"
-  # Approximate download size; leave 1 GiB free for audio conversion and output.
+  # Approximate download size; leave 1 GB free for audio conversion and output.
   typeset -A model_mib=(
     tiny 75 tiny.en 75 base 142 base.en 142 small 466 small.en 466
     medium 1500 medium.en 1500 large-v1 2900 large-v2 2900 large-v3 3100
@@ -258,10 +306,13 @@ if [[ "${transcription:l}" == yes ]]; then
   )
   required_kib=$(( (${model_mib[$whisper_model]:-3100} + 1024) * 1024 ))
   free_kib="$(music_inbox_disk_free_kib "$local_root")"
+  download_size="$(music_inbox_human_kib "$(( ${model_mib[$whisper_model]:-3100} * 1024 ))")"
+  free_space="$(music_inbox_human_kib "$free_kib")"
+  recommended_space="$(music_inbox_human_kib "$required_kib")"
   print
   music_inbox_ui_heading 'Local transcription model'
-  music_inbox_ui_key_value 'Model' "$whisper_model (about ${model_mib[$whisper_model]:-3100} MiB download)"
-  music_inbox_ui_key_value 'Free space' "$(( free_kib / 1024 )) MiB; recommended minimum: $(( required_kib / 1024 )) MiB"
+  music_inbox_ui_key_value 'Model' "$whisper_model (about $download_size download)"
+  music_inbox_ui_key_value 'Free space' "$free_space; recommended minimum: $recommended_space"
   if [[ ! -r "$model_path" ]]; then
     if (( free_kib < required_kib )); then
       music_inbox_ui_warning 'Available space is below the recommended amount.'

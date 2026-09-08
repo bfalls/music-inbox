@@ -39,15 +39,41 @@ music_inbox_load_config() {
   : "${MUSIC_INBOX_WHISPER_MODEL_PATH:=$MUSIC_INBOX_MODEL_DIR/ggml-${MUSIC_INBOX_WHISPER_MODEL}.bin}"
 }
 
+music_inbox_whisper_is_compatible() {
+  local candidate="$1" usage
+  if usage="$("$candidate" --help 2>&1)"; then
+    :
+  else
+    usage="$("$candidate" -h 2>&1 || true)"
+  fi
+  # whisper.cpp accepts a model file with `-m FNAME` / `--model FNAME`.
+  # Python Whisper also provides a `whisper` command, but its CLI is not
+  # compatible with Music Inbox's whisper.cpp arguments.
+  [[ "$usage" == *'-m FNAME'* || "$usage" == *'--model FNAME'* ]]
+}
+
 music_inbox_find_whisper() {
   # `path` is a special zsh parameter tied to PATH; do not shadow it here.
   local tool resolved_path
+  local -a candidates
   for tool in whisper-cli whisper; do
     resolved_path="$(music_inbox_find_tool "$tool" 2>/dev/null || true)"
-    [[ -n "$resolved_path" ]] && { print -r -- "$resolved_path"; return 0; }
+    [[ -n "$resolved_path" ]] && candidates+=("$resolved_path")
   done
-  # Older MacPorts releases install whisper.cpp's historical CLI as `main`.
-  [[ -x /opt/local/bin/main ]] && { print -r -- /opt/local/bin/main; return 0; }
+  # A Python Whisper installation may appear first in PATH. Keep checking the
+  # standard package-manager locations for whisper.cpp rather than treating
+  # that incompatible command as the only candidate named `whisper`.
+  candidates+=(
+    /opt/homebrew/bin/whisper-cli /usr/local/bin/whisper-cli /opt/local/bin/whisper-cli
+    /opt/homebrew/bin/whisper /usr/local/bin/whisper /opt/local/bin/whisper
+    /opt/local/bin/main
+  )
+  for resolved_path in "${candidates[@]}"; do
+    if [[ -x "$resolved_path" ]] && music_inbox_whisper_is_compatible "$resolved_path"; then
+      print -r -- "$resolved_path"
+      return 0
+    fi
+  done
   return 1
 }
 
@@ -56,16 +82,34 @@ music_inbox_disk_free_kib() {
   df -Pk "$1" 2>/dev/null | awk 'NR == 2 { print $4 }'
 }
 
+music_inbox_human_kib() {
+  local kib="$1"
+  awk -v kib="$kib" 'BEGIN {
+    split("KB MB GB TB", units, " ")
+    size = kib + 0
+    unit = 1
+    while (size >= 1024 && unit < 4) { size /= 1024; unit++ }
+    if (size == int(size)) printf "%d %s", size, units[unit]
+    else printf "%.1f %s", size, units[unit]
+  }'
+}
+
 music_inbox_human_file_size() {
   local file="$1" bytes
   [[ -f "$file" ]] || return 1
-  bytes="$(stat -f '%z' "$file" 2>/dev/null || stat -c '%s' "$file" 2>/dev/null)" || return 1
+  if bytes="$(stat -f '%z' "$file" 2>/dev/null)"; then
+    :
+  elif bytes="$(stat -c '%s' "$file" 2>/dev/null)"; then
+    :
+  else
+    return 1
+  fi
   awk -v bytes="$bytes" 'BEGIN {
-    split("B KiB MiB GiB TiB", units, " ")
+    split("B KB MB GB TB", units, " ")
     size = bytes + 0
     unit = 1
     while (size >= 1024 && unit < 5) { size /= 1024; unit++ }
-    if (unit == 1) printf "%d %s", size, units[unit]
+    if (size == int(size)) printf "%d %s", size, units[unit]
     else printf "%.1f %s", size, units[unit]
   }'
 }

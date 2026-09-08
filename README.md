@@ -14,7 +14,7 @@ The initial setup creates this folder hierarchy from one chosen root:
 5 Failed/
 ```
 
-That root may be synced—for example, an Obsidian vault in iCloud—because it contains the small, user-facing request notes and completed results. Music Inbox separately stores all machine-only data in a local folder.
+That root may be synced, for example an Obsidian vault in iCloud, because it contains the small, user-facing request notes and completed results. Music Inbox separately stores all machine-only data in a local folder.
 
 ## Setup
 
@@ -56,16 +56,24 @@ Enable it during initial setup, or later run:
 music-inbox install-transcription
 ```
 
-The setup checks for Homebrew's `whisper-cpp` or MacPorts' `whisper` package, asks before installing it, then asks before downloading the selected speech model. It shows the model's approximate download size, free disk space, and a recommended amount of working space. Models are stored locally at `~/Library/Application Support/music-inbox/state/models/` by default, never in the synced inbox root.
+To intentionally switch to a different model, for example a more accurate `small` model, run:
 
-Choose a multilingual model such as `base` if you want Russian or another non-English language. English-only models have a `.en` suffix, such as `base.en`. `base` is the default because it supports multiple languages without further setup.
+```bash
+music-inbox install-transcription --model small
+```
 
-For example, a Russian transcript request is:
+This keeps the existing model file, so you can switch back without another download. Models are local files and can be removed later from the Models path shown by `music-inbox paths` if you no longer want them.
+
+The setup checks for Homebrew's `whisper-cpp` or MacPorts' `whisper` package, asks before installing it, then asks before downloading the selected speech model. It updates only the optional transcription dependency and model setup; it does not reinstall the command or background service. It shows the model's approximate download size, free disk space, and a recommended amount of working space. Models are stored locally at `~/Library/Application Support/music-inbox/state/models/` by default, never in the synced inbox root.
+
+Choose a multilingual model such as `base` for languages other than English. English-only models have a `.en` suffix, such as `base.en`. `base` is the default because it supports multiple languages without further setup.
+
+For example, a transcript request can include a spoken-language hint:
 
 ```md
 URL: https://youtu.be/example
 transcribe: yes
-language: ru
+language: es
 transcript-format: txt,srt
 ```
 
@@ -83,13 +91,13 @@ music-inbox validate "/path/to/2 Queued/My request.md"
 
 ### Native request dialog
 
-On a Mac desktop session, run this to create and queue a request through a lightweight native dialog—no extra app or X server required:
+On a Mac desktop session, run this to create and process a request through a lightweight native dialog, with no extra app or X server required:
 
 ```bash
 music-inbox add
 ```
 
-It opens one native macOS request window, pre-filled from the clipboard when possible. The form supports ordinary text editing and paste, radio buttons for Music import, transcription, and English translation; checkboxes for transcript formats; a source-language pop-up; and a scrollable picker of your existing Music playlists. Choose **Create new playlist** to supply a new name. Unavailable local-transcription choices are disabled. It writes a validated note to `2 Queued` only after you confirm it. The optional background service then processes it normally.
+It opens one native macOS request window, pre-filled from the clipboard when possible. The form supports ordinary text editing and paste, radio buttons for Music import, transcription, and English translation; checkboxes for transcript formats; a source-language pop-up; and a scrollable picker of your existing Music playlists. Choose **Create new playlist** to supply a new name. Unavailable local-transcription choices are disabled. After you confirm, the command stays open and shows live processing progress. It lists the completed request, result note, and every transcript or translation file at the end.
 
 ### Fields
 
@@ -102,7 +110,7 @@ It opens one native macOS request window, pre-filled from the clipboard when pos
 | `transcribe` | `no` | Set to `yes` to create a transcript in the spoken language. Requires local transcription setup. |
 | `translate` | `no` | Set to `yes` to create an English translation. It can be combined with `transcribe: yes`. Requires a multilingual Whisper model such as `base`. |
 | `language` | Auto-detect | Optional spoken-language hint, such as `en`, `ru`, or `pt-br`. It applies to both transcription and translation. |
-| `transcript-format` | Installed default, normally `txt` | Comma-separated output formats: `txt`, `srt`, and/or `vtt`. Applies to transcripts and translations. |
+| `transcript-format` | `txt` | Comma-separated output formats: `txt`, `srt`, and/or `vtt`. Choose it per request; it applies to transcripts and translations. |
 
 Values for `import-to-music`, `create-playlist`, `transcribe`, and `translate` must be `yes` or `no`. Field names are case-insensitive; use each recognized field at most once.
 
@@ -143,9 +151,9 @@ language: ru
 transcript-format: txt,srt
 ```
 
-Use `translate: yes` to create an English translation instead of, or as well as, the ordinary transcript. Translation requires a multilingual model such as `base`; models ending in `.en` cannot translate. A request with `import-to-music: no` must enable `transcribe` or `translate`, so it always produces a user-facing result. Files are named after the request note, for example `My request — transcript.srt` and `My request — translation.srt`, and are placed in `4 Done`.
+Use `translate: yes` to create an English translation instead of, or as well as, the ordinary transcript. Translation requires a multilingual model such as `base`; models ending in `.en` cannot translate. A request with `import-to-music: no` must enable `transcribe` or `translate`, so it always produces a user-facing result. Files are named after the request note, for example `My request - transcript.srt` and `My request - translation.srt`, and are placed in `4 Done`. The result note links to each output file and includes its full path.
 
-Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `— error.md` note. Failed requests are deliberately **not** counted as duplicates.
+Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `- error.md` note. Failed requests are deliberately **not** counted as duplicates.
 
 ## Process queued requests
 
