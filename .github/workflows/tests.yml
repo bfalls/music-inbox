@@ -20,6 +20,9 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v6
 
+      - name: Install test tools
+        run: brew install ripgrep
+
       - name: Check shell syntax
         run: zsh -n install.sh bin/* lib/*.zsh tests/*.zsh
 
