@@ -30,6 +30,9 @@ music_inbox_load_config() {
   # Keep large, volatile, and machine-specific data outside a potentially
   # synced inbox (for example, an iCloud-backed Obsidian folder).
   MUSIC_INBOX_MEDIA="$MUSIC_INBOX_LOCAL_ROOT/media"
+  # Music.app may not be permitted to import directly from Application Support.
+  # This visible, local staging area exists only while Music accepts a copy.
+  : "${MUSIC_INBOX_MUSIC_STAGING:=$HOME/Music/Music Inbox Imports}"
   MUSIC_INBOX_STATE="$MUSIC_INBOX_LOCAL_ROOT/state"
   MUSIC_INBOX_LOG="$MUSIC_INBOX_STATE/music-inbox.log"
   MUSIC_INBOX_MODEL_DIR="$MUSIC_INBOX_STATE/models"

@@ -81,6 +81,16 @@ Only recognized `key: value` lines are processed; the rest of the Markdown note 
 music-inbox validate "/path/to/2 Queued/My request.md"
 ```
 
+### Native request dialog
+
+On a Mac desktop session, run this to create and queue a request through a lightweight native dialog—no extra app or X server required:
+
+```bash
+music-inbox add
+```
+
+It opens one native macOS request window, pre-filled from the clipboard when possible. The form supports ordinary text editing and paste, radio buttons for Music import, transcription, and English translation; checkboxes for transcript formats; a source-language pop-up; and a scrollable picker of your existing Music playlists. Choose **Create new playlist** to supply a new name. Unavailable local-transcription choices are disabled. It writes a validated note to `2 Queued` only after you confirm it. The optional background service then processes it normally.
+
 ### Fields
 
 | Field | Default | What it does |
@@ -145,7 +155,7 @@ Run one safe queue pass manually with:
 music-inbox process
 ```
 
-Each request is checked before download. If Music import is enabled and a playlist is named, Music Inbox verifies it exists before downloading; `create-playlist: yes` permits the later import step to create a missing playlist. Audio is downloaded to the local-only data directory using a filesystem-safe video-title-and-ID name, imported into Music when requested, and only then removed when cleanup is enabled. A successful request moves to `4 Done` with a companion result note and a completed-request record. Requested transcript and translation files are kept in `4 Done`.
+Each request is checked before download. If Music import is enabled and a playlist is named, Music Inbox verifies it exists before downloading; `create-playlist: yes` permits the later import step to create a missing playlist. Audio is downloaded to the local-only data directory using a filesystem-safe video-title-and-ID name. Before import, Music Inbox copies the MP3 to `~/Music/Music Inbox Imports`, a Music-visible staging folder; it deletes that copy after a confirmed import. If import fails, it keeps only that staging copy for manual recovery and removes the duplicate private working copy. A successful request moves to `4 Done` with a companion result note and a completed-request record. Requested transcript and translation files are kept in `4 Done`. Both result and error notes include total elapsed time and a human-readable breakdown of the work performed.
 
 ## Background service
 

@@ -7,9 +7,10 @@ source "$SCRIPT_DIR/../lib/request.zsh"
 source "$SCRIPT_DIR/../lib/queue.zsh"
 source "$SCRIPT_DIR/../lib/launchd.zsh"
 source "$SCRIPT_DIR/../lib/ui.zsh"
+source "$SCRIPT_DIR/../lib/add.zsh"
 
 usage() {
-  print "Usage: music-inbox <status|doctor|paths|log|validate|process|install-service|start|stop|restart|uninstall-service|install-transcription>"
+  print "Usage: music-inbox <add|status|doctor|paths|log|validate|process|install-service|start|stop|restart|uninstall-service|install-transcription>"
 }
 
 case "${1:-}" in
@@ -22,6 +23,9 @@ esac
 music_inbox_load_config
 
 case "${1:-status}" in
+  add)
+    music_inbox_add_request
+    ;;
   status)
     music_inbox_ui_heading 'Music Inbox status'
     music_inbox_ui_key_value 'Inbox root' "$MUSIC_INBOX_ROOT"

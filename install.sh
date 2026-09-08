@@ -147,6 +147,12 @@ mkdir -p "$APP_DIR/bin" "$APP_DIR/lib"
 cp -R "$PROJECT_DIR/bin/." "$APP_DIR/bin/"
 cp -R "$PROJECT_DIR/lib/." "$APP_DIR/lib/"
 chmod 755 "$APP_DIR/bin/music-inbox" "$APP_DIR/bin/music-inbox-worker"
+applet_path="$APP_DIR/Music Inbox Request.app"
+rm -rf -- "$applet_path"
+if ! osacompile -o "$applet_path" "$APP_DIR/lib/add.applescript"; then
+  print -u2 'Could not build the native Music Inbox request window.'
+  exit 1
+fi
 
 # /usr/local/bin is the macOS convention for a user-installed CLI. Most Macs
 # already include it in PATH; /etc/paths.d ensures future standard login shells

@@ -13,6 +13,7 @@ MUSIC_INBOX_CONFIG="$TEST_ROOT/config/config.env" music_inbox_load_config
 [[ "$MUSIC_INBOX_QUEUED" == "$TEST_ROOT/inbox/2 Queued" ]]
 [[ "$MUSIC_INBOX_DONE" == "$TEST_ROOT/inbox/4 Done" ]]
 [[ "$MUSIC_INBOX_LOCAL_ROOT" == "$HOME/Library/Application Support/music-inbox" ]]
+[[ "$MUSIC_INBOX_MUSIC_STAGING" == "$HOME/Music/Music Inbox Imports" ]]
 [[ "$MUSIC_INBOX_WHISPER_MODEL_PATH" == "$HOME/Library/Application Support/music-inbox/state/models/ggml-base.bin" ]]
 model_fixture="$TEST_ROOT/model.bin"
 dd if=/dev/zero of="$model_fixture" bs=1536 count=1 2>/dev/null

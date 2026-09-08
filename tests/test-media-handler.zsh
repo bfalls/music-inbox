@@ -10,6 +10,7 @@ mkdir -p "$TEST_ROOT/config" "$TEST_ROOT/inbox/2 Queued" "$TEST_ROOT/mock-bin"
 {
   print -r -- "MUSIC_INBOX_ROOT=$TEST_ROOT/inbox"
   print -r -- "MUSIC_INBOX_LOCAL_ROOT=$TEST_ROOT/local"
+  print -r -- "MUSIC_INBOX_MUSIC_STAGING=$TEST_ROOT/music-staging"
   print -r -- 'MUSIC_INBOX_BROWSER='
   print -r -- 'MUSIC_INBOX_CLEANUP_AFTER_IMPORT=yes'
   print -r -- 'MUSIC_INBOX_TRANSCRIPTION_ENABLED=yes'
@@ -35,6 +36,7 @@ mkdir -p "$TEST_ROOT/config" "$TEST_ROOT/inbox/2 Queued" "$TEST_ROOT/mock-bin"
 {
   print '#!/bin/zsh'
   print '[[ -n "${OSA_LOG:-}" ]] && print -r -- "$*" >> "$OSA_LOG"'
+  print '[[ "${OSA_FAIL_IMPORT:-}" == yes && " $* " == *" set importedTracks to add "* ]] && exit 1'
   print 'if [[ " $* " == *" every user playlist "* ]]; then print exists; fi'
 } > "$TEST_ROOT/mock-bin/osascript"
 {
@@ -82,9 +84,29 @@ music_inbox_with_worker_lock music_inbox_process_queued_note "$note" music_inbox
 result_note="$MUSIC_INBOX_DONE/Media Test — result.md"
 [[ -f "$result_note" ]]
 rg -q 'Title: A / Video: Title' "$result_note"
+rg -q '^\- Total time: ' "$result_note"
+rg -q '^\- Step timings:$' "$result_note"
+rg -q 'Download and convert audio:' "$result_note"
 [[ -z "$(find "$MUSIC_INBOX_MEDIA" -type f -name '*.mp3' -print -quit)" ]]
+[[ -z "$(find "$MUSIC_INBOX_MUSIC_STAGING" -type f -name '*.mp3' -print -quit)" ]]
 [[ "$(find "$MUSIC_INBOX_STATE/completed" -type f | wc -l | tr -d ' ')" == 1 ]]
 print 'ok - downloads locally, imports through Music automation, records completion, and cleans the MP3 only after success'
+
+failed_import_note="$MUSIC_INBOX_QUEUED/Failed Import.md"
+print 'URL: https://youtu.be/failed-import' > "$failed_import_note"
+if OSA_FAIL_IMPORT=yes music_inbox_with_worker_lock music_inbox_process_queued_note "$failed_import_note" music_inbox_handle_media; then
+  print -u2 'expected Music import failure'
+  exit 1
+fi
+[[ -f "$MUSIC_INBOX_FAILED/Failed Import.md" ]]
+rg -q 'import copy was retained at:' "$MUSIC_INBOX_FAILED/Failed Import — error.md"
+rg -q '^\- Total time: ' "$MUSIC_INBOX_FAILED/Failed Import — error.md"
+rg -q 'Import into Apple Music: .*\(interrupted\)' "$MUSIC_INBOX_FAILED/Failed Import — error.md"
+retained_staging_mp3="$(find "$MUSIC_INBOX_MUSIC_STAGING" -type f -name '*.mp3' -print -quit)"
+retained_local_mp3="$(find "$MUSIC_INBOX_MEDIA" -type f -name '*.mp3' -print -quit)"
+[[ -n "$retained_staging_mp3" && -z "$retained_local_mp3" ]]
+print 'ok - retains only the Music-visible import copy after an import failure'
+rm -f -- "$retained_staging_mp3"
 
 : > "$TEST_ROOT/osascript.log"
 transcript_note="$MUSIC_INBOX_QUEUED/Transcript Only.md"

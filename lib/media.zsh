@@ -94,6 +94,21 @@ on run argv
 end run' -- "$mp3_path" "$playlist" "$create" >/dev/null
 }
 
+music_inbox_stage_for_music() {
+  local source_path="$1" staging_path base_name suffix=1
+  [[ -r "$source_path" ]] || return 1
+  mkdir -p "$MUSIC_INBOX_MUSIC_STAGING" || return 1
+  base_name="${source_path:t}"
+  staging_path="$MUSIC_INBOX_MUSIC_STAGING/$base_name"
+  while [[ -e "$staging_path" ]]; do
+    staging_path="$MUSIC_INBOX_MUSIC_STAGING/${base_name:r}-$suffix.${base_name:e}"
+    (( suffix++ ))
+  done
+  cp -p "$source_path" "$staging_path" || return 1
+  chmod 644 "$staging_path" 2>/dev/null || true
+  print -r -- "$staging_path"
+}
+
 music_inbox_write_result_note() {
   local done_note="$1" destination
   destination="$(music_inbox_safe_note_destination "$MUSIC_INBOX_DONE" "${${done_note:t}%.*} — result.md")"
@@ -101,6 +116,7 @@ music_inbox_write_result_note() {
     print '# Music Inbox completed'
     print
     print -r -- "- Completed: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+	  music_inbox_write_timing_summary
     print -r -- "- Title: $MUSIC_INBOX_VIDEO_TITLE"
     print -r -- "- Video ID: $MUSIC_INBOX_VIDEO_ID"
     print -r -- "- URL: $MUSIC_INBOX_REQUEST_URL"
@@ -161,7 +177,7 @@ music_inbox_publish_transcript_outputs() {
 }
 
 music_inbox_handle_media() {
-  local processing_note="$1" yt_dlp ffmpeg whisper mp3_path wav_path work_base
+  local processing_note="$1" yt_dlp ffmpeg whisper mp3_path staging_path wav_path work_base
   MUSIC_INBOX_PROCESS_ERROR=''
   MUSIC_INBOX_TRANSCRIPT_OUTPUTS=()
   MUSIC_INBOX_TRANSCRIPT_LABELS=()
@@ -170,49 +186,76 @@ music_inbox_handle_media() {
   ffmpeg="$(music_inbox_find_tool ffmpeg 2>/dev/null || true)"
   [[ -n "$ffmpeg" ]] || { music_inbox_set_process_error 'ffmpeg is not installed. Run: music-inbox doctor'; return 1; }
 
-  if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]] && ! music_inbox_playlist_preflight; then
-    [[ -n "$MUSIC_INBOX_PROCESS_ERROR" ]] || music_inbox_set_process_error 'Could not check playlists in Music. Open Music once and allow automation when macOS asks.'
-    return 1
+  if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]]; then
+    music_inbox_timing_begin_stage 'Check Music playlist'
+    if ! music_inbox_playlist_preflight; then
+      [[ -n "$MUSIC_INBOX_PROCESS_ERROR" ]] || music_inbox_set_process_error 'Could not check playlists in Music. Open Music once and allow automation when macOS asks.'
+      return 1
+    fi
+    music_inbox_timing_finish_stage
   fi
+  music_inbox_timing_begin_stage 'Read video details'
   if ! music_inbox_read_video_metadata "$yt_dlp"; then
     music_inbox_set_process_error 'Could not read the video title and ID with yt-dlp.'
     return 1
   fi
+  music_inbox_timing_finish_stage
 
   mkdir -p "$MUSIC_INBOX_MEDIA"
   work_base="$(music_inbox_safe_filename "$MUSIC_INBOX_VIDEO_TITLE")-$(music_inbox_safe_filename "$MUSIC_INBOX_VIDEO_ID")-$(music_inbox_request_hash)"
   mp3_path="$MUSIC_INBOX_MEDIA/$work_base.mp3"
   local -a yt_args
   yt_args=("${(@f)$(music_inbox_yt_dlp_args)}")
+  music_inbox_timing_begin_stage 'Download and convert audio'
   if ! "$yt_dlp" "${yt_args[@]}" --extract-audio --audio-format mp3 --audio-quality 0 \
     --embed-metadata --embed-thumbnail --restrict-filenames --ffmpeg-location "${ffmpeg:h}" \
     --output "$MUSIC_INBOX_MEDIA/$work_base.%(ext)s" "$MUSIC_INBOX_REQUEST_URL"; then
     music_inbox_set_process_error 'yt-dlp could not download or convert this request. The temporary files were retained for inspection.'
     return 1
   fi
+  music_inbox_timing_finish_stage
   [[ -r "$mp3_path" ]] || { music_inbox_set_process_error "Expected MP3 was not created: $mp3_path"; return 1; }
   if [[ "$MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC" == yes ]]; then
-    if ! music_inbox_import_into_music "$mp3_path"; then
-      music_inbox_set_process_error 'Music could not import the MP3. The MP3 was retained locally; open Music and allow automation when macOS asks.'
+    music_inbox_timing_begin_stage 'Import into Apple Music'
+    staging_path="$(music_inbox_stage_for_music "$mp3_path")" || {
+      music_inbox_set_process_error "Could not prepare the Music import copy in: $MUSIC_INBOX_MUSIC_STAGING"
+      return 1
+    }
+    if ! music_inbox_import_into_music "$staging_path"; then
+      # The staging copy is deliberately retained for manual recovery. It is
+      # byte-for-byte equivalent to the private working copy, so avoid holding
+      # two potentially enormous MP3s after a failed import.
+      rm -f -- "$mp3_path"
+      music_inbox_set_process_error "Music could not import the MP3. The import copy was retained at: $staging_path"
       return 1
     fi
+    rm -f -- "$staging_path"
+    music_inbox_timing_finish_stage
   fi
   if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes || "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]]; then
     whisper="$(music_inbox_find_whisper 2>/dev/null || true)"
     [[ -n "$whisper" ]] || { music_inbox_set_process_error 'The local Whisper program is unavailable. Run: music-inbox install-transcription'; return 1; }
     wav_path="$MUSIC_INBOX_MEDIA/$work_base-whisper.wav"
+    music_inbox_timing_begin_stage 'Prepare audio for transcription'
     if ! "$ffmpeg" -y -i "$mp3_path" -ar 16000 -ac 1 -c:a pcm_s16le "$wav_path"; then
       music_inbox_set_process_error 'ffmpeg could not prepare audio for transcription. The MP3 was retained locally.'
       return 1
     fi
-    if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes ]] && ! music_inbox_run_whisper "$whisper" "$wav_path" "$MUSIC_INBOX_MEDIA/$work_base-transcript" transcript; then
-      music_inbox_set_process_error 'Whisper could not create the transcript. Temporary media was retained locally.'
-      return 1
+    music_inbox_timing_finish_stage
+    if [[ "$MUSIC_INBOX_REQUEST_TRANSCRIBE" == yes ]]; then
+      music_inbox_timing_begin_stage 'Create transcript'
+      if ! music_inbox_run_whisper "$whisper" "$wav_path" "$MUSIC_INBOX_MEDIA/$work_base-transcript" transcript; then
+        music_inbox_set_process_error 'Whisper could not create the transcript. Temporary media was retained locally.'
+        return 1
+      fi
+      music_inbox_timing_finish_stage
     fi
+    [[ "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]] && music_inbox_timing_begin_stage 'Create English translation'
     if [[ "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]] && ! music_inbox_run_whisper "$whisper" "$wav_path" "$MUSIC_INBOX_MEDIA/$work_base-translation" translation; then
       music_inbox_set_process_error 'Whisper could not create the English translation. Temporary media was retained locally.'
       return 1
     fi
+	  [[ "$MUSIC_INBOX_REQUEST_TRANSLATE" == yes ]] && music_inbox_timing_finish_stage
   fi
   if [[ "${MUSIC_INBOX_CLEANUP_AFTER_IMPORT:l}" == yes ]]; then
     rm -f -- "$mp3_path" "${wav_path:-}"

@@ -13,6 +13,66 @@ music_inbox_release_worker_lock() {
   [[ -n "${MUSIC_INBOX_WORKER_LOCK:-}" && -d "$MUSIC_INBOX_WORKER_LOCK" ]] && rmdir "$MUSIC_INBOX_WORKER_LOCK"
 }
 
+music_inbox_format_duration() {
+  local total="${1:-0}"
+  integer hours minutes seconds
+  (( total < 0 )) && total=0
+  hours=$(( total / 3600 ))
+  minutes=$(( (total % 3600) / 60 ))
+  seconds=$(( total % 60 ))
+  if (( hours > 0 )); then
+    print -r -- "${hours}h ${minutes}m ${seconds}s"
+  elif (( minutes > 0 )); then
+    print -r -- "${minutes}m ${seconds}s"
+  else
+    print -r -- "${seconds}s"
+  fi
+}
+
+music_inbox_timing_start() {
+  typeset -ga MUSIC_INBOX_TIMING_STAGES
+  MUSIC_INBOX_TIMING_STARTED="$(date +%s)"
+  MUSIC_INBOX_TIMING_ACTIVE_LABEL=''
+  MUSIC_INBOX_TIMING_ACTIVE_STARTED=''
+  MUSIC_INBOX_TIMING_STAGES=()
+}
+
+music_inbox_timing_finish_stage() {
+  local finished elapsed
+  [[ -n "${MUSIC_INBOX_TIMING_ACTIVE_LABEL:-}" ]] || return 0
+  finished="$(date +%s)"
+  elapsed=$(( finished - MUSIC_INBOX_TIMING_ACTIVE_STARTED ))
+  MUSIC_INBOX_TIMING_STAGES+=("${MUSIC_INBOX_TIMING_ACTIVE_LABEL}"$'\t'"$elapsed")
+  MUSIC_INBOX_TIMING_ACTIVE_LABEL=''
+  MUSIC_INBOX_TIMING_ACTIVE_STARTED=''
+}
+
+music_inbox_timing_begin_stage() {
+  music_inbox_timing_finish_stage
+  MUSIC_INBOX_TIMING_ACTIVE_LABEL="$1"
+  MUSIC_INBOX_TIMING_ACTIVE_STARTED="$(date +%s)"
+}
+
+music_inbox_write_timing_summary() {
+  local finished total entry label elapsed
+  [[ -n "${MUSIC_INBOX_TIMING_STARTED:-}" ]] || return 0
+  finished="$(date +%s)"
+  total=$(( finished - MUSIC_INBOX_TIMING_STARTED ))
+  print -r -- "- Total time: $(music_inbox_format_duration "$total")"
+  if (( ${#MUSIC_INBOX_TIMING_STAGES} )) || [[ -n "${MUSIC_INBOX_TIMING_ACTIVE_LABEL:-}" ]]; then
+    print -- '- Step timings:'
+    for entry in "${MUSIC_INBOX_TIMING_STAGES[@]}"; do
+      label="${entry%%$'\t'*}"
+      elapsed="${entry#*$'\t'}"
+      print -r -- "  - $label: $(music_inbox_format_duration "$elapsed")"
+    done
+    if [[ -n "${MUSIC_INBOX_TIMING_ACTIVE_LABEL:-}" ]]; then
+      elapsed=$(( finished - MUSIC_INBOX_TIMING_ACTIVE_STARTED ))
+      print -r -- "  - $MUSIC_INBOX_TIMING_ACTIVE_LABEL: $(music_inbox_format_duration "$elapsed") (interrupted)"
+    fi
+  fi
+}
+
 music_inbox_safe_note_destination() {
   local directory="$1" source="$2" stem extension candidate number=1
   stem="${${source:t}%.*}"
@@ -76,6 +136,8 @@ music_inbox_write_error_note() {
     print
     print "$message"
     print
+	  music_inbox_write_timing_summary
+	  print
     print 'Fix the issue, then move the original request note back to `2 Queued`.'
   } > "$destination"
   print -r -- "$destination"
