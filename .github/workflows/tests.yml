@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: macOS test suite
+    runs-on: macos-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Check shell syntax
+        run: zsh -n install.sh bin/* lib/*.zsh tests/*.zsh
+
+      - name: Run tests
+        run: |
+          set -e
+          for test_file in tests/test-*.zsh; do
+            zsh "$test_file"
+          done

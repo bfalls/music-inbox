@@ -1,5 +1,7 @@
 # music-inbox
 
+[![Tests](https://github.com/bfalls/music-inbox/actions/workflows/tests.yml/badge.svg)](https://github.com/bfalls/music-inbox/actions/workflows/tests.yml)
+
 ![Music Inbox workflow: request files flow through folders, audio, transcripts, and a music library](assets/music-inbox-hero.png)
 
 A macOS folder-based media workflow: queue an online video URL to download and tag its audio with yt-dlp, import it into Apple Music, or produce local transcripts and English translations with Whisper.
