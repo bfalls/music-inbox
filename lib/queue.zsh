@@ -101,6 +101,12 @@ music_inbox_claim_note() {
 music_inbox_request_key() {
   print -r -- "url=$MUSIC_INBOX_REQUEST_URL"
   print -r -- "playlist=$MUSIC_INBOX_REQUEST_PLAYLIST"
+  print -r -- "create_playlist=${MUSIC_INBOX_REQUEST_CREATE_PLAYLIST:-no}"
+  print -r -- "import_to_music=${MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC:-yes}"
+  print -r -- "transcribe=${MUSIC_INBOX_REQUEST_TRANSCRIBE:-no}"
+  print -r -- "translate=${MUSIC_INBOX_REQUEST_TRANSLATE:-no}"
+  print -r -- "language=${MUSIC_INBOX_REQUEST_LANGUAGE:-}"
+  print -r -- "formats=${MUSIC_INBOX_REQUEST_FORMATS:-}"
 }
 
 music_inbox_request_hash() {
@@ -117,7 +123,7 @@ music_inbox_duplicate_problem() {
   local hash
   hash="$(music_inbox_request_hash)"
   [[ -e "$MUSIC_INBOX_STATE/completed/$hash" ]] || return 1
-  print "This URL has already completed for this playlist. Change the request or remove the completed-state entry deliberately."
+  print "This request has already completed with these options. Change the request or remove the completed-state entry deliberately."
   return 0
 }
 

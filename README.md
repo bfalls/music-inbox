@@ -155,7 +155,7 @@ transcript-format: txt,srt
 
 Use `translate: yes` to create an English translation instead of, or as well as, the ordinary transcript. Translation requires a multilingual model such as `base`; models ending in `.en` cannot translate. A request with `import-to-music: no` must enable `transcribe` or `translate`, so it always produces a user-facing result. Files are named after the request note, for example `My request - transcript.srt` and `My request - translation.srt`, and are placed in `4 Done`. The result note links to each output file and includes its full path.
 
-Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `- error.md` note. Failed requests are deliberately **not** counted as duplicates.
+Before any media download, the queue pipeline parses the note, verifies local capabilities such as transcription, and checks the completed-request ledger. A duplicate is the same URL with the same output options, playlist, language, and formats. It atomically claims a note by moving it from `2 Queued` to `3 Processing`; malformed, unsupported, or duplicate requests move to `5 Failed` with a companion `- error.md` note. Failed requests are deliberately **not** counted as duplicates.
 
 ## Process queued requests
 

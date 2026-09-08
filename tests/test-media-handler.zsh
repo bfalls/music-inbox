@@ -48,6 +48,7 @@ mkdir -p "$TEST_ROOT/config" "$TEST_ROOT/inbox/2 Queued" "$TEST_ROOT/mock-bin"
 {
   print '#!/bin/zsh'
   print '[[ "${1:-}" == --help ]] && { print "usage: whisper-cli -m FNAME [options]"; exit 0; }'
+  print '[[ -n "${WHISPER_LOG:-}" ]] && print -r -- "$*" >> "$WHISPER_LOG"'
   print 'prefix=""; formats=()'
   print 'while (( $# )); do'
   print '  case "$1" in'
@@ -110,6 +111,7 @@ print 'ok - retains only the Music-visible import copy after an import failure'
 rm -f -- "$retained_staging_mp3"
 
 : > "$TEST_ROOT/osascript.log"
+whisper_log="$TEST_ROOT/whisper.log"
 transcript_note="$MUSIC_INBOX_QUEUED/Transcript Only.md"
 {
   print 'URL: https://youtu.be/transcript-only'
@@ -118,7 +120,7 @@ transcript_note="$MUSIC_INBOX_QUEUED/Transcript Only.md"
   print 'translate: yes'
   print 'transcript-format: txt,srt'
 } > "$transcript_note"
-OSA_LOG="$TEST_ROOT/osascript.log" music_inbox_with_worker_lock music_inbox_process_queued_note "$transcript_note" music_inbox_handle_media
+OSA_LOG="$TEST_ROOT/osascript.log" WHISPER_LOG="$whisper_log" music_inbox_with_worker_lock music_inbox_process_queued_note "$transcript_note" music_inbox_handle_media
 
 [[ -f "$MUSIC_INBOX_DONE/Transcript Only.md" ]]
 [[ -f "$MUSIC_INBOX_DONE/Transcript Only - transcript.txt" ]]
@@ -126,6 +128,7 @@ OSA_LOG="$TEST_ROOT/osascript.log" music_inbox_with_worker_lock music_inbox_proc
 [[ -f "$MUSIC_INBOX_DONE/Transcript Only - translation.txt" ]]
 [[ -f "$MUSIC_INBOX_DONE/Transcript Only - translation.srt" ]]
 [[ ! -s "$TEST_ROOT/osascript.log" ]]
+rg -q -- '-tr' "$whisper_log"
 transcript_result="$MUSIC_INBOX_DONE/Transcript Only - result.md"
 rg -q 'Imported to Music: no' "$transcript_result"
 rg -Fq '[Transcript Only - transcript.txt](<Transcript Only - transcript.txt>)' "$transcript_result"

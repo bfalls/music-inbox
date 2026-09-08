@@ -156,7 +156,7 @@ music_inbox_run_whisper() {
   formats=( ${(s:,:)${MUSIC_INBOX_REQUEST_FORMATS:-$MUSIC_INBOX_TRANSCRIPT_FORMATS}} )
   args=(-m "$MUSIC_INBOX_WHISPER_MODEL_PATH" -f "$wav_path" -of "$output_prefix")
   [[ -n "$MUSIC_INBOX_REQUEST_LANGUAGE" ]] && args+=(-l "$MUSIC_INBOX_REQUEST_LANGUAGE")
-  [[ "$task" == translate ]] && args+=(-tr)
+  [[ "$task" == translation ]] && args+=(-tr)
   for format in "${formats[@]}"; do
     case "$format" in
       txt) flag=-otxt ;;

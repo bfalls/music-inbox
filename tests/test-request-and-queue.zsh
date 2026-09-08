@@ -127,7 +127,19 @@ print 'ok - claims notes safely and writes a companion failure note'
 
 MUSIC_INBOX_REQUEST_URL='https://youtu.be/completed'
 MUSIC_INBOX_REQUEST_PLAYLIST='Coding Focus'
+MUSIC_INBOX_REQUEST_CREATE_PLAYLIST=no
+MUSIC_INBOX_REQUEST_IMPORT_TO_MUSIC=no
+MUSIC_INBOX_REQUEST_TRANSCRIBE=no
+MUSIC_INBOX_REQUEST_TRANSLATE=yes
+MUSIC_INBOX_REQUEST_LANGUAGE=ru
+MUSIC_INBOX_REQUEST_FORMATS=txt
 music_inbox_mark_request_completed
 duplicate_message="$(music_inbox_duplicate_problem)"
 [[ "$duplicate_message" == *'already completed'* ]]
-print 'ok - records only completed requests as duplicates'
+MUSIC_INBOX_REQUEST_TRANSLATE=no
+MUSIC_INBOX_REQUEST_TRANSCRIBE=yes
+if music_inbox_duplicate_problem >/dev/null; then
+  print -u2 'expected a different requested output to be eligible to run'
+  exit 1
+fi
+print 'ok - records only matching completed requests as duplicates'
